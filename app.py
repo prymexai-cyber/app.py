@@ -13,7 +13,8 @@ app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # 15 MB upload limit
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 # Groq vision model. Change from Render env vars if Groq retires this one.
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+FALLBACK_MODELS = ["qwen/qwen3.8-27b", "qwen/qwen3.6-27b"]
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = """You are an expert gemologist assistant that inspects photos of gemstones.
@@ -90,8 +91,7 @@ def analyze():
     except Exception:
         return jsonify(error="Image eka read karanna beri una. JPG/PNG ekak try karanna."), 400
 
-    payload = {
-        "model": GROQ_MODEL,
+    base_payload = {
         "temperature": 0.2,
         "max_completion_tokens": 6000,
         "messages": [
@@ -106,15 +106,23 @@ def analyze():
         ],
     }
 
-    try:
-        r = requests.post(
-            GROQ_URL,
-            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=90,
-        )
-    except requests.RequestException:
-        return jsonify(error="Groq API ekata connect wenna beri una. Passe try karanna."), 502
+    # Try the configured model first, then fall back if Groq says it no longer exists.
+    candidates = [GROQ_MODEL] + [m for m in FALLBACK_MODELS if m != GROQ_MODEL]
+    r = None
+    used_model = GROQ_MODEL
+    for model in candidates:
+        used_model = model
+        try:
+            r = requests.post(
+                GROQ_URL,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json={**base_payload, "model": model},
+                timeout=90,
+            )
+        except requests.RequestException:
+            return jsonify(error="Groq API ekata connect wenna beri una. Passe try karanna."), 502
+        if r.status_code != 404:
+            break
 
     if r.status_code != 200:
         try:
@@ -129,7 +137,7 @@ def analyze():
     except Exception:
         return jsonify(error="AI response eka parse karanna beri una. Ayeth try karanna."), 502
 
-    return jsonify(report=report, model=GROQ_MODEL)
+    return jsonify(report=report, model=used_model)
 
 
 if __name__ == "__main__":
