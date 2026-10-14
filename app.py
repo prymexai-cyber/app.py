@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import os
+import re
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
@@ -12,7 +13,7 @@ app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # 15 MB upload limit
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 # Groq vision model. Change from Render env vars if Groq retires this one.
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.6-27b")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 SYSTEM_PROMPT = """You are an expert gemologist assistant that inspects photos of gemstones.
@@ -56,6 +57,15 @@ def prepare_image(file_storage):
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
+def extract_json(text):
+    """Pull the JSON object out of the model reply (strips <think> blocks and code fences)."""
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError("no json")
+    return json.loads(text[start:end + 1])
+
+
 @app.route("/")
 def index():
     return send_from_directory(app.static_folder, "index.html")
@@ -83,8 +93,7 @@ def analyze():
     payload = {
         "model": GROQ_MODEL,
         "temperature": 0.2,
-        "max_completion_tokens": 2500,
-        "response_format": {"type": "json_object"},
+        "max_completion_tokens": 6000,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
@@ -115,8 +124,8 @@ def analyze():
         return jsonify(error=f"Groq error ({r.status_code}): {detail}"), 502
 
     try:
-        content = r.json()["choices"][0]["message"]["content"]
-        report = json.loads(content)
+        content = r.json()["choices"][0]["message"]["content"] or ""
+        report = extract_json(content)
     except Exception:
         return jsonify(error="AI response eka parse karanna beri una. Ayeth try karanna."), 502
 
