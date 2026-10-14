@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gem Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EEF2; --panel:#FFFFFF; --ink:#0F1B2D; --muted:#5B6877; --line:#CBD5DE;
+  --sapphire:#2347B5; --ruby:#A8143A; --emerald:#0B7A5A; --amber:#9A6200;
+  --radius:14px;
+  --head:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Figtree',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0B1220;--panel:#121C2E;--ink:#E8EEF6;--muted:#93A3B8;--line:#26354D;--sapphire:#7C9BFF;--ruby:#FF7A9C;--emerald:#4FD1A5;--amber:#F0B34A;}
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:12px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+.wrap{max-width:980px;margin:0 auto;padding:24px 18px 60px}
+h1,h2,h3{font-family:var(--head);margin:0;line-height:1.1}
+h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:1.35rem;font-weight:700}
+.lead{color:var(--muted);max-width:52ch;margin:10px 0 0}
+header{padding:10px 0 22px;display:flex;gap:18px;align-items:center}
+.logo{flex:none;width:64px;height:64px}
+button{font:inherit;cursor:pointer}
+button:focus-visible,label:focus-within{outline:3px solid var(--sapphire);outline-offset:2px}
+
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;
+  background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:20px;color:var(--ink);
+  transition:border-color .15s, transform .15s}
+.tile:hover{border-color:var(--sapphire);transform:translateY(-2px)}
+.tile svg{width:34px;height:34px;stroke:var(--sapphire)}
+.tile b{font-family:var(--head);font-size:1.25rem}
+.tile span{color:var(--muted);font-size:.93rem}
+.tile.primary{background:var(--sapphire);border-color:var(--sapphire);color:#fff}
+.tile.primary span{color:rgba(255,255,255,.82)}
+.tile.primary svg{stroke:#fff}
+@media (prefers-color-scheme:dark){.tile.primary{color:#0B1220}.tile.primary span{color:rgba(11,18,32,.75)}.tile.primary svg{stroke:#0B1220}}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.stage{margin-top:22px;display:none;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:14px}
+.stage.on{display:block}
+.shot{position:relative;border-radius:10px;overflow:hidden;background:#000;display:flex;justify-content:center}
+.shot img{display:block;max-width:100%;max-height:60vh;object-fit:contain}
+.scan{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--sapphire),transparent);
+  box-shadow:0 0 18px 4px var(--sapphire);top:0;display:none;animation:scan 1.6s ease-in-out infinite alternate}
+.shot.busy .scan{display:block}
+@keyframes scan{to{top:calc(100% - 3px)}}
+@media (prefers-reduced-motion:reduce){.scan{animation:none;top:50%}}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn{border:0;border-radius:10px;padding:12px 20px;font-weight:600;background:var(--sapphire);color:#fff}
+@media (prefers-color-scheme:dark){.btn{color:#0B1220}}
+.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+.btn:disabled{opacity:.55;cursor:wait}
+
+.err{margin-top:16px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--ruby);color:var(--ruby);display:none}
+.err.on{display:block}
+
+/* report */
+#report{margin-top:30px;display:none}
+#report.on{display:block}
+.sheet{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:22px}
+.sheet-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;border-bottom:1.5px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+.meta{color:var(--muted);font-size:.9rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.stat{border:1.5px solid var(--line);border-radius:12px;padding:14px}
+.stat small{color:var(--muted);display:block}
+.stat strong{font-family:var(--head);font-size:2rem}
+.sub{margin:22px 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.92rem}
+.chip i{width:12px;height:12px;border-radius:50%;background:var(--sapphire);display:inline-block}
+.chip b{font-weight:600}
+.tablewrap{overflow-x:auto;border:1.5px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:.93rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);background:color-mix(in srgb,var(--line) 30%,transparent)}
+tr:last-child td{border-bottom:0}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid currentColor}
+.tag.ok{color:var(--emerald)} .tag.warn{color:var(--amber)} .tag.bad{color:var(--ruby)} .tag.neutral{color:var(--muted)}
+.note{margin-top:20px;padding:14px;border-radius:10px;border-left:4px solid var(--amber);background:color-mix(in srgb,var(--amber) 10%,transparent);font-size:.92rem}
+.repimg{max-width:240px;border-radius:8px;border:1.5px solid var(--line);margin-top:10px}
+
+/* camera modal */
+.modal{position:fixed;inset:0;background:rgba(4,8,16,.92);display:none;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.modal.on{display:flex}
+.modal video{width:100%;max-width:720px;max-height:70vh;border-radius:12px;background:#000;object-fit:cover}
+.modal .row{justify-content:center}
+.shutter{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:var(--sapphire);padding:0}
+
+@media (max-width:560px){.actions{grid-template-columns:1fr}.logo{width:48px;height:48px}}
+@media print{
+  body{background:#fff;color:#000}
+  .no-print,header,.actions,.stage,.err{display:none!important}
+  .wrap{padding:0}.sheet{border:0;padding:0}
+  :root{--panel:#fff;--ink:#000;--muted:#444;--line:#bbb}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="no-print">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+      <polygon points="32,4 56,22 32,60 8,22" fill="none" stroke="var(--sapphire)" stroke-width="3" stroke-linejoin="round"/>
+      <polyline points="8,22 56,22" fill="none" stroke="var(--sapphire)" stroke-width="3"/>
+      <polyline points="22,22 32,4 42,22 32,60 22,22" fill="none" stroke="var(--sapphire)" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <h1>Gem Tracker</h1>
+      <p class="lead">Photo ekak gahanna, nathnam gallery eken upload karanna. Gem count, colour, type, origin saha authenticity report eka ekka denawa.</p>
+    </div>
+  </header>
+
+  <section class="actions no-print" aria-label="Choose photo source">
+    <button class="tile primary" id="openCam" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.8"/></svg>
+      <b>Open camera</b>
+      <span>Gem eka dan photo ekak gahanna</span>
+    </button>
+    <label class="tile" for="fileIn" style="cursor:pointer">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg>
+      <b>Upload from gallery</b>
+      <span>Phone / computer eke thiyena photo ekak</span>
+    </label>
+    <input type="file" id="fileIn" accept="image/*">
+  </section>
+
+  <section class="stage no-print" id="stage">
+    <div class="shot" id="shot"><img id="preview" alt="Selected gemstone photo"><div class="scan"></div></div>
+    <div class="row">
+      <button class="btn" id="analyzeBtn" type="button">Analyze gems</button>
+      <button class="btn ghost" id="clearBtn" type="button">Choose another photo</button>
+    </div>
+  </section>
+
+  <div class="err" id="err" role="alert"></div>
+
+  <section id="report" aria-live="polite">
+    <div class="sheet" id="sheet"></div>
+    <div class="row no-print">
+      <button class="btn" id="printBtn" type="button">Print / Save as PDF</button>
+      <button class="btn ghost" id="jsonBtn" type="button">Download JSON</button>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="camModal" role="dialog" aria-modal="true" aria-label="Camera">
+  <video id="video" autoplay playsinline muted></video>
+  <div class="row">
+    <button class="btn ghost" id="camClose" type="button" style="color:#fff;border-color:#fff">Close</button>
+    <button class="shutter" id="shutter" type="button" aria-label="Take photo"></button>
+    <button class="btn ghost" id="camFlip" type="button" style="color:#fff;border-color:#fff">Flip camera</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const stage=$('stage'), preview=$('preview'), shot=$('shot'), err=$('err');
+  const report=$('report'), sheet=$('sheet');
+  let currentBlob=null, stream=null, facing='environment', lastReport=null, lastImgUrl=null;
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function showError(m){ err.textContent=m; err.classList.add('on'); }
+  function clearError(){ err.classList.remove('on'); }
+
+  function setImage(blob){
+    currentBlob=blob;
+    if(lastImgUrl) URL.revokeObjectURL(lastImgUrl);
+    lastImgUrl=URL.createObjectURL(blob);
+    preview.src=lastImgUrl;
+    stage.classList.add('on');
+    report.classList.remove('on');
+    clearError();
+    stage.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+
+  $('fileIn').addEventListener('change', e => { const f=e.target.files[0]; if(f) setImage(f); });
+  $('clearBtn').addEventListener('click', () => {
+    currentBlob=null; stage.classList.remove('on'); report.classList.remove('on'); $('fileIn').value=''; clearError();
+  });
+
+  /* ---------- camera ---------- */
+  async function startCam(){
+    stopCam();
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    $('video').srcObject = stream;
+  }
+  function stopCam(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
+
+  $('openCam').addEventListener('click', async () => {
+    clearError();
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showError('Me browser eke camera access naha (HTTPS ekak oni). Gallery eken upload karanna.'); return;
+    }
+    try{ await startCam(); $('camModal').classList.add('on'); }
+    catch(e){ showError('Camera eka open karanna beri una. Browser eke camera permission allow karanna.'); }
+  });
+  $('camClose').addEventListener('click', () => { stopCam(); $('camModal').classList.remove('on'); });
+  $('camFlip').addEventListener('click', async () => {
+    facing = facing==='environment' ? 'user' : 'environment';
+    try{ await startCam(); }catch(e){ showError('Camera flip karanna beri una.'); }
+  });
+  $('shutter').addEventListener('click', () => {
+    const v=$('video'); if(!v.videoWidth) return;
+    const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
+    c.getContext('2d').drawImage(v,0,0);
+    c.toBlob(b => { stopCam(); $('camModal').classList.remove('on'); if(b) setImage(b); }, 'image/jpeg', .92);
+  });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && $('camModal').classList.contains('on')) $('camClose').click(); });
+
+  /* ---------- analyze ---------- */
+  $('analyzeBtn').addEventListener('click', async () => {
+    if(!currentBlob) return;
+    clearError();
+    const btn=$('analyzeBtn'); btn.disabled=true; btn.textContent='Analyzing...'; shot.classList.add('busy');
+    const fd=new FormData(); fd.append('image', currentBlob, 'gems.jpg');
+    try{
+      const r=await fetch('/api/analyze',{method:'POST',body:fd});
+      const data=await r.json();
+      if(!r.ok) throw new Error(data.error || 'Analyze karanna beri una.');
+      lastReport=data.report;
+      renderReport(data.report, data.model);
+    }catch(e){ showError(e.message); }
+    finally{ btn.disabled=false; btn.textContent='Analyze gems'; shot.classList.remove('busy'); }
+  });
+
+  /* ---------- report ---------- */
+  const PALETTE = {blue:'#2347B5',red:'#C0233F',green:'#12906A',yellow:'#E2B007',orange:'#E27A07',pink:'#E06FA0',
+    purple:'#7B3FB5',white:'#DDE3EA',colourless:'#DDE3EA',colorless:'#DDE3EA',black:'#222',brown:'#7B5130',grey:'#8A94A0',gray:'#8A94A0',teal:'#12868F'};
+  function dot(name){
+    const n=String(name||'').toLowerCase();
+    for(const k in PALETTE) if(n.includes(k)) return PALETTE[k];
+    return '#8A94A0';
+  }
+  function authTag(a){
+    const t=String(a||'').toLowerCase();
+    let cls='neutral';
+    if(t.includes('natural')) cls='ok';
+    else if(t.includes('synthetic')||t.includes('lab')) cls='warn';
+    else if(t.includes('glass')||t.includes('imitation')) cls='bad';
+    return `<span class="tag ${cls}">${esc(a)}</span>`;
+  }
+
+  function renderReport(r, model){
+    const gems=Array.isArray(r.gems)?r.gems:[];
+    const types=Array.isArray(r.summary_by_type)?r.summary_by_type:[];
+    const cols=Array.isArray(r.summary_by_colour)?r.summary_by_colour:[];
+    const countries=[...new Set(gems.flatMap(g => Array.isArray(g.estimated_origin)?g.estimated_origin:[]))];
+    const now=new Date();
+    const rows=gems.map(g => `
+      <tr>
+        <td>${esc(g.id)}</td>
+        <td><b>${esc(g.type)}</b><br><span class="meta">${esc(g.shape_cut)}</span></td>
+        <td><span class="chip" style="padding:2px 10px"><i style="background:${dot(g.color)}"></i>${esc(g.color)}</span></td>
+        <td>${esc((g.estimated_origin||[]).join(', '))}<br><span class="meta">confidence: ${esc(g.origin_confidence)}</span></td>
+        <td>${authTag(g.authenticity)}<br><span class="meta">confidence: ${esc(g.authenticity_confidence)}</span></td>
+        <td>${esc(g.notes)}</td>
+      </tr>`).join('');
+
+    sheet.innerHTML = `
+      <div class="sheet-head">
+        <div>
+          <h2>Gem inspection report</h2>
+          <div class="meta">${esc(now.toLocaleString())} &nbsp;|&nbsp; Photo quality: ${esc(r.image_quality||'n/a')}</div>
+        </div>
+        <img class="repimg" src="${lastImgUrl}" alt="Inspected photo">
+      </div>
+
+      <div class="stats">
+        <div class="stat"><small>Total gems</small><strong>${esc(r.total_count ?? gems.length)}</strong></div>
+        <div class="stat"><small>Gem types</small><strong>${types.length}</strong></div>
+        <div class="stat"><small>Colours</small><strong>${cols.length}</strong></div>
+        <div class="stat"><small>Possible origin countries</small><strong>${countries.length}</strong></div>
+      </div>
+
+      <h3 class="sub">Count by gem type</h3>
+      <div class="chips">${types.map(t=>`<span class="chip"><b>${esc(t.count)}</b> ${esc(t.type)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
+
+      <h3 class="sub">Count by colour</h3>
+      <div class="chips">${cols.map(c=>`<span class="chip"><i style="background:${dot(c.color)}"></i><b>${esc(c.count)}</b> ${esc(c.color)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
+
+      <h3 class="sub">Likely origin countries</h3>
+      <div class="chips">${countries.map(c=>`<span class="chip">${esc(c)}</span>`).join('') || '<span class="meta">Could not estimate</span>'}</div>
+
+      <h3 class="sub">Stone by stone</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Type / cut</th><th>Colour</th><th>Estimated origin</th><th>Authenticity</th><th>Notes</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="6">No gemstones detected.</td></tr>'}</tbody>
+      </table></div>
+
+      <h3 class="sub">Overall remarks</h3>
+      <p>${esc(r.overall_remarks)}</p>
+
+      <div class="note"><b>Please note:</b> Meka AI eken photo ekak balala denna visual estimate ekak. Origin eka saha natural/synthetic kiyana eka confirm karanna one nam gem lab ekaka certificate ekak (e.g. NGJA / GIA) ganna. <span class="meta">Model: ${esc(model)}</span></div>
+    `;
+    report.classList.add('on');
+    report.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  $('printBtn').addEventListener('click', () => window.print());
+  $('jsonBtn').addEventListener('click', () => {
+    if(!lastReport) return;
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(lastReport,null,2)],{type:'application/json'}));
+    a.download='gem-report.json'; a.click();
+  });
+})();
+</script>
+</body>
+</html>
