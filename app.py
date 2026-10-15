@@ -70,8 +70,38 @@ PROVIDERS = {
         "keys": env_keys("XAI_API_KEYS", "XAI_API_KEY"),
         "models": model_list("XAI_MODEL", "grok-4", "grok-4-fast", "grok-2-vision-1212"),
     },
+    "openai": {
+        "label": "OpenAI",
+        "keys": env_keys("OPENAI_API_KEYS", "OPENAI_API_KEY"),
+        "models": model_list("OPENAI_MODEL", "gpt-4.1-mini", "gpt-4o-mini"),
+    },
+    "mistral": {
+        "label": "Mistral",
+        "keys": env_keys("MISTRAL_API_KEYS", "MISTRAL_API_KEY"),
+        "models": model_list("MISTRAL_MODEL", "mistral-small-latest", "pixtral-large-latest", "mistral-medium-latest"),
+        "try_all_models": True,
+    },
+    "openrouter": {
+        # if OPENROUTER_MODEL is empty, free vision models are discovered automatically
+        "label": "OpenRouter",
+        "keys": env_keys("OPENROUTER_API_KEYS", "OPENROUTER_API_KEY"),
+        "models": model_list("OPENROUTER_MODEL"),
+        "try_all_models": True,
+    },
+    "github": {
+        "label": "GitHub Models",
+        "keys": env_keys("GITHUB_MODELS_TOKENS", "GITHUB_MODELS_TOKEN", "GITHUB_TOKEN"),
+        "models": model_list("GITHUB_MODEL", "openai/gpt-4.1-mini", "openai/gpt-4o-mini"),
+        "try_all_models": True,
+    },
+    "custom": {
+        # any OpenAI-compatible service (Together, NVIDIA NIM, Fireworks, DeepInfra ...)
+        "label": os.environ.get("CUSTOM_LABEL", "Custom AI"),
+        "keys": env_keys("CUSTOM_API_KEYS", "CUSTOM_API_KEY") if os.environ.get("CUSTOM_API_BASE") and os.environ.get("CUSTOM_MODEL") else [],
+        "models": model_list("CUSTOM_MODEL"),
+    },
 }
-PREFERENCE = ["gemini", "anthropic", "xai", "groq"]
+PREFERENCE = ["gemini", "anthropic", "openai", "xai", "mistral", "groq", "github", "openrouter", "custom"]
 
 
 # --------------------------------------------------------------------------
@@ -529,30 +559,76 @@ def err_text(resp):
         return resp.text[:300]
 
 
-def call_openai_compat(url, key, model, b64, user_text):
-    payload = {
-        "model": model, "temperature": 0.2, "max_completion_tokens": 8000,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": [
-                {"type": "text", "text": user_text},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-            ]},
-        ],
-    }
-    r = requests.post(url, headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                      json=payload, timeout=TIMEOUT)
-    if r.status_code != 200:
-        return r.status_code, "", err_text(r)
-    return 200, r.json()["choices"][0]["message"].get("content") or "", ""
+def oai_caller(url, token_param="max_completion_tokens", use_temp=True, headers=None):
+    """Build a caller for any OpenAI-compatible chat completions API."""
+    def call(key, model, b64, user_text):
+        payload = {
+            "model": model, token_param: 8000,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": [
+                    {"type": "text", "text": user_text},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                ]},
+            ],
+        }
+        if use_temp:
+            payload["temperature"] = 0.2
+        h = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        h.update(headers or {})
+        target = url() if callable(url) else url
+        r = requests.post(target, headers=h, json=payload, timeout=TIMEOUT)
+        if r.status_code != 200:
+            return r.status_code, "", err_text(r)
+        msg = r.json()["choices"][0]["message"]
+        content = msg.get("content") or ""
+        if isinstance(content, list):
+            content = "".join(c.get("text", "") for c in content if isinstance(c, dict))
+        return 200, content, ""
+    return call
 
 
-def call_groq(key, model, b64, user_text):
-    return call_openai_compat("https://api.groq.com/openai/v1/chat/completions", key, model, b64, user_text)
+def custom_url():
+    return os.environ.get("CUSTOM_API_BASE", "").rstrip("/") + "/chat/completions"
 
 
-def call_xai(key, model, b64, user_text):
-    return call_openai_compat("https://api.x.ai/v1/chat/completions", key, model, b64, user_text)
+call_groq = oai_caller("https://api.groq.com/openai/v1/chat/completions")
+call_xai = oai_caller("https://api.x.ai/v1/chat/completions")
+call_openai = oai_caller("https://api.openai.com/v1/chat/completions", use_temp=False)
+call_mistral = oai_caller("https://api.mistral.ai/v1/chat/completions", token_param="max_tokens")
+call_openrouter = oai_caller("https://openrouter.ai/api/v1/chat/completions", token_param="max_tokens",
+                             headers={"X-Title": "Yasiru Gems Gem Tracker"})
+call_github = oai_caller("https://models.github.ai/inference/chat/completions", token_param="max_tokens")
+call_custom = oai_caller(custom_url, token_param="max_tokens")
+
+
+_or_cache = {"t": 0.0, "ids": []}
+
+
+def openrouter_free_vision(key):
+    """Find free OpenRouter models that accept images (cached for an hour)."""
+    if _or_cache["ids"] and time.time() - _or_cache["t"] < 3600:
+        return _or_cache["ids"]
+    try:
+        r = requests.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"}, timeout=20)
+        ids = [m["id"] for m in r.json().get("data", [])
+               if str(m.get("id", "")).endswith(":free")
+               and "image" in ((m.get("architecture") or {}).get("input_modalities") or [])]
+    except Exception:
+        ids = []
+    ids = ids[:4]
+    if ids:
+        _or_cache.update(t=time.time(), ids=ids)
+    return ids
+
+
+def models_for(name, cfg):
+    models = list(cfg["models"])
+    if name == "openrouter" and cfg["keys"]:
+        for m in openrouter_free_vision(cfg["keys"][0]):
+            if m not in models:
+                models.append(m)
+    return models
 
 
 def call_gemini(key, model, b64, user_text):
@@ -589,7 +665,9 @@ def call_anthropic(key, model, b64, user_text):
     return 200, "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text"), ""
 
 
-CALLERS = {"groq": call_groq, "xai": call_xai, "gemini": call_gemini, "anthropic": call_anthropic}
+CALLERS = {"groq": call_groq, "xai": call_xai, "gemini": call_gemini, "anthropic": call_anthropic,
+           "openai": call_openai, "mistral": call_mistral, "openrouter": call_openrouter,
+           "github": call_github, "custom": call_custom}
 
 
 # --------------------------------------------------------------------------
@@ -701,7 +779,10 @@ def run_provider(name, b64, user_text):
     random.shuffle(keys)
     last_err = "unknown error"
 
-    for model in cfg["models"]:
+    models = models_for(name, cfg)
+    last_model = models[0] if models else "auto"
+    for model in models:
+        last_model = model
         model_missing = False
         for key in keys:
             try:
@@ -724,9 +805,9 @@ def run_provider(name, b64, user_text):
             if status == 404:
                 model_missing = True
                 break
-        if not model_missing:
+        if not (model_missing or cfg.get("try_all_models")):
             break
-    return {"provider": name, "label": cfg["label"], "model": cfg["models"][0], "ok": False,
+    return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
             "error": last_err, "ms": int((time.time() - started) * 1000)}
 
 
@@ -881,7 +962,7 @@ def index():
 def health():
     return jsonify({
         "ok": True,
-        "providers": {n: {"label": c["label"], "keys": len(c["keys"]), "models": c["models"]}
+        "providers": {n: {"label": c["label"], "keys": len(c["keys"]), "models": c["models"] or ["(automatic)"]}
                       for n, c in PROVIDERS.items()},
     })
 
@@ -907,7 +988,7 @@ def analyze():
     with ThreadPoolExecutor(max_workers=len(active)) as pool:
         futures = {pool.submit(run_provider, n, b64, user_text): n for n in active}
         try:
-            for f in as_completed(futures, timeout=TIMEOUT * 3):
+            for f in as_completed(futures, timeout=150):
                 results.append(f.result())
         except Exception:
             pass
