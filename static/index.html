@@ -22,11 +22,11 @@
 html{scroll-padding-top:12px}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
   padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
-.wrap{max-width:980px;margin:0 auto;padding:24px 18px 60px}
+.wrap{max-width:1020px;margin:0 auto;padding:24px 18px 60px}
 h1,h2,h3{font-family:var(--head);margin:0;line-height:1.1}
-h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:700;letter-spacing:-.02em}
+h1{font-size:clamp(1.9rem,6vw,3.1rem);font-weight:700;letter-spacing:-.02em}
 h2{font-size:1.35rem;font-weight:700}
-.lead{color:var(--muted);max-width:52ch;margin:10px 0 0}
+.lead{color:var(--muted);max-width:54ch;margin:10px 0 0}
 header{padding:10px 0 22px;display:flex;gap:18px;align-items:center}
 .logo{flex:none;width:64px;height:64px}
 button{font:inherit;cursor:pointer}
@@ -45,6 +45,7 @@ button:focus-visible,label:focus-within{outline:3px solid var(--sapphire);outlin
 .tile.primary svg{stroke:#fff}
 @media (prefers-color-scheme:dark){.tile.primary{color:#0B1220}.tile.primary span{color:rgba(11,18,32,.75)}.tile.primary svg{stroke:#0B1220}}
 input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.engines{margin-top:12px;color:var(--muted);font-size:.9rem}
 
 .stage{margin-top:22px;display:none;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:14px}
 .stage.on{display:block}
@@ -59,7 +60,10 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 .btn{border:0;border-radius:10px;padding:12px 20px;font-weight:600;background:var(--sapphire);color:#fff}
 @media (prefers-color-scheme:dark){.btn{color:#0B1220}}
 .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+.btn.small{padding:7px 12px;font-size:.88rem}
 .btn:disabled{opacity:.55;cursor:wait}
+.busytext{margin-top:10px;color:var(--muted);font-size:.93rem;display:none}
+.busytext.on{display:block}
 
 .err{margin-top:16px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--ruby);color:var(--ruby);display:none}
 .err.on{display:block}
@@ -68,27 +72,66 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events
 #report{margin-top:30px;display:none}
 #report.on{display:block}
 .sheet{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:22px}
-.sheet-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;border-bottom:1.5px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+.sheet-head{border-bottom:1.5px solid var(--line);padding-bottom:14px;margin-bottom:18px}
 .meta{color:var(--muted);font-size:.9rem}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
-.stat{border:1.5px solid var(--line);border-radius:12px;padding:14px}
-.stat small{color:var(--muted);display:block}
-.stat strong{font-family:var(--head);font-size:2rem}
-.sub{margin:22px 0 10px}
+.sub{margin:26px 0 10px;font-size:1.1rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+
+.countbox{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;border:1.5px solid var(--line);border-radius:12px;padding:16px}
+.bignum{font-family:var(--head);font-size:3.6rem;font-weight:700;line-height:1}
+.bignum small{display:block;font-family:var(--body);font-size:.85rem;font-weight:500;color:var(--muted);margin-top:4px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.92rem}
 .chip i{width:12px;height:12px;border-radius:50%;background:var(--sapphire);display:inline-block}
 .chip b{font-weight:600}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid currentColor}
+.tag.ok{color:var(--emerald)} .tag.warn{color:var(--amber)} .tag.bad{color:var(--ruby)} .tag.neutral{color:var(--muted)}
+
+.markbox{margin-top:14px;border:1.5px solid var(--line);border-radius:12px;padding:14px}
+.markstage{position:relative;display:inline-block;max-width:100%;line-height:0;cursor:crosshair;touch-action:manipulation;border-radius:8px;overflow:hidden}
+.markstage img{max-width:100%;max-height:68vh;display:block}
+.mk{position:absolute;transform:translate(-50%,-50%);min-width:22px;height:22px;padding:0 4px;border-radius:999px;border:2px solid #fff;
+  background:var(--emerald);color:#fff;font:600 11px/18px var(--body);text-align:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);cursor:pointer}
+.mk:hover{background:var(--ruby)}
+.verified{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.verified strong{font-family:var(--head);font-size:1.6rem}
+
+.bars .bar{display:grid;grid-template-columns:minmax(110px,1.1fr) 3fr 52px;gap:10px;align-items:center;margin:7px 0;font-size:.93rem}
+.track{height:12px;border-radius:999px;background:color-mix(in srgb,var(--line) 55%,transparent);overflow:hidden}
+.fill{height:100%;border-radius:999px;background:var(--sapphire)}
+.fill.t-unheated{background:var(--emerald)} .fill.t-heated{background:var(--amber)} .fill.t-other{background:var(--ruby)}
+.fill.a-natural{background:var(--emerald)} .fill.a-synth{background:var(--amber)} .fill.a-imit{background:var(--ruby)}
+.pct{text-align:right;font-weight:600}
+.verdict{margin:10px 0 0;font-size:.93rem;color:var(--muted)}
+
 .tablewrap{overflow-x:auto;border:1.5px solid var(--line);border-radius:12px}
-table{border-collapse:collapse;width:100%;min-width:720px;font-size:.93rem}
+table{border-collapse:collapse;width:100%;min-width:900px;font-size:.92rem}
 th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-weight:600;color:var(--muted);background:color-mix(in srgb,var(--line) 30%,transparent)}
 tr:last-child td{border-bottom:0}
-.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid currentColor}
-.tag.ok{color:var(--emerald)} .tag.warn{color:var(--amber)} .tag.bad{color:var(--ruby)} .tag.neutral{color:var(--muted)}
 .note{margin-top:20px;padding:14px;border-radius:10px;border-left:4px solid var(--amber);background:color-mix(in srgb,var(--amber) 10%,transparent);font-size:.92rem}
-.repimg{max-width:240px;border-radius:8px;border:1.5px solid var(--line);margin-top:10px}
+.credit{margin-top:40px;padding-top:18px;border-top:1.5px solid var(--line);color:var(--muted);font-size:.92rem;text-align:center}
+.credit div:last-child{font-family:var(--head);font-weight:700;color:var(--ink);margin-top:2px}
 
+/* manual readings */
+details.manual{margin-top:14px;border:1.5px solid var(--line);border-radius:12px;padding:0 14px}
+details.manual summary{cursor:pointer;padding:12px 0;font-weight:600;list-style:none}
+details.manual summary::-webkit-details-marker{display:none}
+details.manual summary::before{content:'+ ';color:var(--sapphire);font-weight:700}
+details.manual[open] summary::before{content:'\2212 '}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding-bottom:12px}
+.fld label,.fld .lab{display:block;font-size:.85rem;color:var(--muted);margin-bottom:3px}
+.fld input,.fld select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:9px 10px}
+.fld input:focus,.fld select:focus{outline:3px solid var(--sapphire);outline-offset:1px}
+.obsgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 14px;padding-bottom:14px}
+.obsgrid label{display:flex;gap:8px;align-items:flex-start;font-size:.92rem;cursor:pointer}
+.obsgrid input{margin-top:4px;accent-color:var(--sapphire)}
+.mnote{font-size:.88rem;color:var(--muted);padding-bottom:12px;margin:0}
+.mh{font-family:var(--head);font-size:1rem;margin:4px 0 8px}
+.card{border:1.5px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
+.card ul{margin:6px 0 0;padding-left:20px}
+.match{display:grid;grid-template-columns:minmax(140px,1.4fr) 3fr 52px;gap:10px;align-items:center;margin:8px 0;font-size:.93rem}
 /* camera modal */
 .modal{position:fixed;inset:0;background:rgba(4,8,16,.92);display:none;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:16px}
 .modal.on{display:flex}
@@ -96,14 +139,13 @@ tr:last-child td{border-bottom:0}
 .modal .row{justify-content:center}
 .shutter{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:var(--sapphire);padding:0}
 
-.credit{margin-top:40px;padding-top:18px;border-top:1.5px solid var(--line);color:var(--muted);font-size:.92rem;text-align:center}
-.credit div:last-child{font-family:var(--head);font-weight:700;color:var(--ink);margin-top:2px}
-@media (max-width:560px){.actions{grid-template-columns:1fr}.logo{width:48px;height:48px}}
+@media (max-width:560px){.actions{grid-template-columns:1fr}.logo{width:48px;height:48px}.countbox{grid-template-columns:1fr}}
 @media print{
   body{background:#fff;color:#000}
-  .no-print,header,.actions,.stage,.err{display:none!important}
+  .no-print,header,.actions,.stage,.err,.engines{display:none!important}
   .wrap{padding:0}.sheet{border:0;padding:0}
   :root{--panel:#fff;--ink:#000;--muted:#444;--line:#bbb}
+  .markstage{cursor:default}
 }
 </style>
 </head>
@@ -117,7 +159,7 @@ tr:last-child td{border-bottom:0}
     </svg>
     <div>
       <h1>Yasiru Gems &amp; Jewellery<br>Gem Tracker</h1>
-      <p class="lead">Take a photo or upload one from your gallery. Get a report with the gem count, colour, type, likely origin and authenticity.</p>
+      <p class="lead">Take a photo or upload one from your gallery. A panel of AI models checks the gem count, colour, type, origin probability, heat treatment and authenticity. Add your own tester readings and weight for a more accurate result.</p>
     </div>
   </header>
 
@@ -134,13 +176,38 @@ tr:last-child td{border-bottom:0}
     </label>
     <input type="file" id="fileIn" accept="image/*">
   </section>
+  <div class="engines no-print" id="engines"></div>
 
   <section class="stage no-print" id="stage">
     <div class="shot" id="shot"><img id="preview" alt="Selected gemstone photo"><div class="scan"></div></div>
+    <details class="manual" id="manual">
+      <summary>Add your own tester readings and weight (optional, improves accuracy)</summary>
+      <p class="mnote">Fill these in when the photo shows ONE stone that you tested. Leave anything you did not measure empty. Works for every gem: diamond, sapphire, ruby, emerald, spinel and all others.</p>
+      <div class="mgrid">
+        <div class="fld"><label for="m_claim">What do you think it is?</label><input id="m_claim" type="text" maxlength="80" placeholder="e.g. Blue sapphire"></div>
+        <div class="fld"><label for="m_thermal">Diamond tester reading (bars)</label>
+          <select id="m_thermal"><option value="">Not tested</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+        <div class="fld"><label for="m_moiss">Moissanite tester</label>
+          <select id="m_moiss"><option value="">Not tested</option><option value="yes">Moissanite detected</option><option value="no">No moissanite detected</option></select></div>
+        <div class="fld"><label for="m_ri">Refractive index (RI)</label><input id="m_ri" type="text" inputmode="decimal" placeholder="e.g. 1.762-1.770"></div>
+        <div class="fld"><label for="m_sg">Specific gravity (SG)</label><input id="m_sg" type="text" inputmode="decimal" placeholder="e.g. 4.00"></div>
+        <div class="fld"><label for="m_uvl">UV long wave</label><select id="m_uvl"><option value="">Not tested</option></select></div>
+        <div class="fld"><label for="m_uvs">UV short wave</label><select id="m_uvs"><option value="">Not tested</option></select></div>
+        <div class="fld"><label for="m_weight">Weight (carats)</label><input id="m_weight" type="number" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 2.35"></div>
+        <div class="fld"><label for="m_shape">Shape</label>
+          <select id="m_shape"><option>round</option><option>oval</option><option>cushion</option><option>emerald cut / rectangular</option><option>princess / square</option><option>pear</option><option>marquise</option><option>heart</option><option selected>other / unknown</option></select></div>
+        <div class="fld"><label for="m_l">Length (mm)</label><input id="m_l" type="number" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="fld"><label for="m_w">Width (mm)</label><input id="m_w" type="number" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="fld"><label for="m_d">Depth (mm)</label><input id="m_d" type="number" step="0.01" min="0" inputmode="decimal"></div>
+      </div>
+      <div class="mh">What do you see under the loupe or microscope?</div>
+      <div class="obsgrid" id="obsgrid"></div>
+    </details>
     <div class="row">
       <button class="btn" id="analyzeBtn" type="button">Analyze gems</button>
       <button class="btn ghost" id="clearBtn" type="button">Choose another photo</button>
     </div>
+    <div class="busytext" id="busytext">Several AI models are inspecting your photo at the same time. This can take up to a minute.</div>
   </section>
 
   <div class="err" id="err" role="alert"></div>
@@ -173,12 +240,19 @@ tr:last-child td{border-bottom:0}
   const $ = id => document.getElementById(id);
   const stage=$('stage'), preview=$('preview'), shot=$('shot'), err=$('err');
   const report=$('report'), sheet=$('sheet');
-  let currentBlob=null, stream=null, facing='environment', lastReport=null, lastImgUrl=null;
+  let currentBlob=null, stream=null, facing='environment', lastData=null, lastImgUrl=null, markers=[];
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const showError = m => { err.textContent=m; err.classList.add('on'); };
+  const clearError = () => err.classList.remove('on');
 
-  function showError(m){ err.textContent=m; err.classList.add('on'); }
-  function clearError(){ err.classList.remove('on'); }
+  /* which AI engines are configured */
+  fetch('/health').then(r=>r.json()).then(h=>{
+    const on=Object.values(h.providers||{}).filter(p=>p.keys>0);
+    $('engines').textContent = on.length
+      ? 'AI panel: ' + on.map(p=>p.label+(p.keys>1?' ('+p.keys+' keys)':'')).join(' · ')
+      : 'No AI keys are configured on the server yet.';
+  }).catch(()=>{});
 
   function setImage(blob){
     currentBlob=blob;
@@ -190,7 +264,6 @@ tr:last-child td{border-bottom:0}
     clearError();
     stage.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
-
   $('fileIn').addEventListener('change', e => { const f=e.target.files[0]; if(f) setImage(f); });
   $('clearBtn').addEventListener('click', () => {
     currentBlob=null; stage.classList.remove('on'); report.classList.remove('on'); $('fileIn').value=''; clearError();
@@ -203,7 +276,6 @@ tr:last-child td{border-bottom:0}
     $('video').srcObject = stream;
   }
   function stopCam(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
-
   $('openCam').addEventListener('click', async () => {
     clearError();
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
@@ -225,23 +297,50 @@ tr:last-child td{border-bottom:0}
   });
   document.addEventListener('keydown', e => { if(e.key==='Escape' && $('camModal').classList.contains('on')) $('camClose').click(); });
 
+  /* ---------- manual readings form ---------- */
+  const UV=['none','weak','red','orange','yellow','green','blue','white / chalky','other'];
+  ['m_uvl','m_uvs'].forEach(id=>{ const sel=$(id); UV.forEach(u=>{ const o=document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o); }); });
+  const OBS=[
+    ['silk_intact','Fine rutile silk (needles) intact'],['silk_broken','Silk broken, dotted or dissolved'],
+    ['discoid','Disc-like stress fractures around inclusions'],['pits','Surface pits, etching or melted facet edges'],
+    ['fingerprints','Natural healed fingerprint inclusions'],['mineral_crystals','Crystals of other minerals inside'],
+    ['zoning_angular','Straight, angular colour zoning'],['curved_striae','Curved striae / curved colour bands'],
+    ['bubbles','Round gas bubbles'],['swirl','Swirl marks or flow lines'],
+    ['flux','Flux / feather-like or veil-like inclusions'],['chips','Shell-like chips on the edges'],
+    ['flash_effect','Blue or orange flash in fractures'],['edge_color','Colour concentrated along facet edges'],
+    ['very_clean','Very clean, almost no inclusions'],['uniform_color','Very even, vivid colour with no zoning']
+  ];
+  OBS.forEach(([k,l])=>{
+    const lab=document.createElement('label');
+    lab.innerHTML=`<input type="checkbox" value="${k}"><span>${esc(l)}</span>`;
+    $('obsgrid').appendChild(lab);
+  });
+  function collectManual(){
+    const v=id=>$(id).value.trim();
+    const m={claim:v('m_claim'),thermal:v('m_thermal'),moissanite:v('m_moiss'),ri:v('m_ri'),sg:v('m_sg'),
+      uv_long:v('m_uvl'),uv_short:v('m_uvs'),weight_ct:v('m_weight'),shape:v('m_shape'),
+      length_mm:v('m_l'),width_mm:v('m_w'),depth_mm:v('m_d'),
+      observations:[...document.querySelectorAll('#obsgrid input:checked')].map(i=>i.value)};
+    return m;
+  }
+
   /* ---------- analyze ---------- */
   $('analyzeBtn').addEventListener('click', async () => {
     if(!currentBlob) return;
     clearError();
-    const btn=$('analyzeBtn'); btn.disabled=true; btn.textContent='Analyzing...'; shot.classList.add('busy');
-    const fd=new FormData(); fd.append('image', currentBlob, 'gems.jpg');
+    const btn=$('analyzeBtn'); btn.disabled=true; btn.textContent='Analyzing...'; shot.classList.add('busy'); $('busytext').classList.add('on');
+    const fd=new FormData(); fd.append('image', currentBlob, 'gems.jpg'); fd.append('manual', JSON.stringify(collectManual()));
     try{
       const r=await fetch('/api/analyze',{method:'POST',body:fd});
-      const data=await r.json();
+      let data; try{ data=await r.json(); }catch(_){ throw new Error('The server took too long to answer. Please try again.'); }
       if(!r.ok) throw new Error(data.error || 'Analysis failed. Please try again.');
-      lastReport=data.report;
-      renderReport(data.report, data.model);
+      lastData=data;
+      renderReport(data);
     }catch(e){ showError(e.message); }
-    finally{ btn.disabled=false; btn.textContent='Analyze gems'; shot.classList.remove('busy'); }
+    finally{ btn.disabled=false; btn.textContent='Analyze gems'; shot.classList.remove('busy'); $('busytext').classList.remove('on'); }
   });
 
-  /* ---------- report ---------- */
+  /* ---------- helpers for the report ---------- */
   const PALETTE = {blue:'#2347B5',red:'#C0233F',green:'#12906A',yellow:'#E2B007',orange:'#E27A07',pink:'#E06FA0',
     purple:'#7B3FB5',white:'#DDE3EA',colourless:'#DDE3EA',colorless:'#DDE3EA',black:'#222',brown:'#7B5130',grey:'#8A94A0',gray:'#8A94A0',teal:'#12868F'};
   function dot(name){
@@ -249,76 +348,219 @@ tr:last-child td{border-bottom:0}
     for(const k in PALETTE) if(n.includes(k)) return PALETTE[k];
     return '#8A94A0';
   }
-  function authTag(a){
-    const t=String(a||'').toLowerCase();
-    let cls='neutral';
-    if(t.includes('natural')) cls='ok';
-    else if(t.includes('synthetic')||t.includes('lab')) cls='warn';
-    else if(t.includes('glass')||t.includes('imitation')) cls='bad';
-    return `<span class="tag ${cls}">${esc(a)}</span>`;
+  function treatCls(t){
+    t=String(t||'').toLowerCase();
+    if(t.includes('unheated')) return 'ok';
+    if(t.includes('diffusion')||t.includes('filled')) return 'bad';
+    if(t.includes('heated')) return 'warn';
+    return 'neutral';
+  }
+  function authCls(t){
+    t=String(t||'').toLowerCase();
+    if(t.includes('natural')) return 'ok';
+    if(t.includes('synthetic')||t.includes('lab')) return 'warn';
+    if(t.includes('glass')||t.includes('imitation')) return 'bad';
+    return 'neutral';
+  }
+  const tag = (txt,cls) => `<span class="tag ${cls}">${esc(txt||'n/a')}</span>`;
+
+  function barClass(kind,name){
+    const n=String(name).toLowerCase();
+    if(kind==='treatment'){ if(n.includes('unheated')) return 't-unheated'; if(n.includes('diffusion')||n.includes('filled')||n.includes('other')) return 't-other'; if(n.includes('heated')) return 't-heated'; }
+    if(kind==='authenticity'){ if(n.includes('natural')) return 'a-natural'; if(n.includes('synth')||n.includes('lab')) return 'a-synth'; if(n.includes('glass')||n.includes('imit')) return 'a-imit'; }
+    return '';
+  }
+  function bars(list,kind){
+    if(!list || !list.length) return '<p class="meta">The models did not give an estimate.</p>';
+    return '<div class="bars">'+list.map(x=>`
+      <div class="bar"><span>${esc(x.name)}</span>
+        <div class="track" role="img" aria-label="${esc(x.name)} ${x.percent} percent"><div class="fill ${barClass(kind,x.name)}" style="width:${Math.max(2,Math.min(100,x.percent))}%"></div></div>
+        <span class="pct">${x.percent}%</span></div>`).join('')+'</div>';
+  }
+  function topLine(list,label){
+    if(!list||!list.length) return '';
+    const t=list[0]; return `<p class="verdict">Most likely ${label}: <b>${esc(t.name)}</b> (${t.percent} out of 100)</p>`;
   }
 
-  function renderReport(r, model){
-    const gems=Array.isArray(r.gems)?r.gems:[];
-    const types=Array.isArray(r.summary_by_type)?r.summary_by_type:[];
-    const cols=Array.isArray(r.summary_by_colour)?r.summary_by_colour:[];
-    const countries=[...new Set(gems.flatMap(g => Array.isArray(g.estimated_origin)?g.estimated_origin:[]))];
-    const now=new Date();
+  /* ---------- markers (tap to correct the count) ---------- */
+  function drawMarkers(){
+    const box=$('markstage'); if(!box) return;
+    box.querySelectorAll('.mk').forEach(n=>n.remove());
+    markers.forEach((m,i)=>{
+      const b=document.createElement('button');
+      b.type='button'; b.className='mk'; b.textContent=i+1;
+      b.style.left=(m.x*100)+'%'; b.style.top=(m.y*100)+'%';
+      b.title='Tap to remove this marker';
+      b.addEventListener('click', ev=>{ ev.stopPropagation(); markers.splice(i,1); drawMarkers(); });
+      box.appendChild(b);
+    });
+    const v=$('verifiedNum'); if(v) v.textContent=markers.length;
+  }
+  function wireMarkers(initial){
+    markers=initial.map(p=>({x:p.x,y:p.y}));
+    const box=$('markstage'), img=$('markimg');
+    box.addEventListener('click', ev=>{
+      const r=img.getBoundingClientRect();
+      const x=(ev.clientX-r.left)/r.width, y=(ev.clientY-r.top)/r.height;
+      if(x<0||x>1||y<0||y>1) return;
+      markers.push({x:+x.toFixed(4),y:+y.toFixed(4)}); drawMarkers();
+    });
+    $('resetMarks').addEventListener('click', ()=>{ markers=initial.map(p=>({x:p.x,y:p.y})); drawMarkers(); });
+    $('clearMarks').addEventListener('click', ()=>{ markers=[]; drawMarkers(); });
+    drawMarkers();
+  }
+
+  function instrumentHtml(r){
+    const i=r.instrument;
+    const vw=r.visual_weight;
+    if(!(i && i.provided) && !vw) return '';
+    let h='<h3 class="sub">8. Instrument and weight check</h3>';
+    if(i && i.provided){
+      if(i.claim) h+=`<p class="meta">Your claim (unverified): <b>${esc(i.claim)}</b></p>`;
+      if(i.thermal_note) h+=`<div class="card"><div class="mh">Diamond tester</div><p style="margin:0">${esc(i.thermal_note)}</p></div>`;
+      if(i.candidates && i.candidates.length){
+        h+=`<div class="card"><div class="mh">Material match from your RI / SG readings</div>`+
+          i.candidates.map(c=>`<div class="match"><span><b>${esc(c.name)}</b></span>
+            <div class="track" role="img" aria-label="${esc(c.name)} match ${c.score} percent"><div class="fill ${c.simulant?'t-other':''}" style="width:${Math.max(3,c.score)}%"></div></div>
+            <span class="pct">${c.score}%</span></div><div class="meta" style="margin:-4px 0 6px">${esc(c.reasons.join('; '))}</div>`).join('')+
+          `<p class="meta" style="margin:8px 0 0">This is a match score against typical textbook ranges, not a probability. ${i.identity?'Best match: <b>'+esc(i.identity)+'</b>.':'Several materials fit about equally well, so no single material is named.'}</p></div>`;
+      }
+      if(i.evidence && i.evidence.length){
+        h+=`<div class="card"><div class="mh">Evidence used to adjust the heated and natural / synthetic odds</div><ul>${i.evidence.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`;
+      }
+      const w=i.weight;
+      if(w){
+        let t='';
+        if(w.measured_ct) t+=`<div>Measured weight: <b>${esc(w.measured_ct)} ct</b></div>`;
+        if(w.estimated_ct) t+=`<div>Weight from size: about <b>${esc(w.estimated_ct)} ct</b> (range ${esc(w.low)} to ${esc(w.high)} ct) using SG ${esc(w.sg_used)} from ${esc(w.sg_basis)}, ${esc(w.shape)} shape.</div>`;
+        if(w.derived_sg) t+=`<div>Density implied by your weight and size: SG about <b>${esc(w.derived_sg)}</b> (low precision, sizes are small numbers).</div>`;
+        if(w.need) t+=`<div class="meta">${esc(w.need)}</div>`;
+        if(w.check) t+=`<div style="color:var(--ruby)">${esc(w.check)}</div>`;
+        h+=`<div class="card"><div class="mh">Weight</div>${t}</div>`;
+      }
+      h+=`<p class="meta">${esc(i.caution)}</p>`;
+    }
+    if(vw){
+      h+=`<div class="card"><div class="mh">Weight estimated from the photo</div>About <b>${esc(vw.min_ct)} to ${esc(vw.max_ct)} ct</b>. Basis: ${esc(vw.basis)}</div>`;
+    } else if(!(i && i.provided && i.weight)){
+      h+='<p class="meta">Weight cannot be read from a photo without a size reference. Enter the weight, or the length, width and depth in mm, or place a ruler or coin next to the stone.</p>';
+    }
+    return h;
+  }
+
+  /* ---------- report ---------- */
+  function renderReport(data){
+    const r=data.report, panel=data.panel||[];
+    const gems=r.gems||[];
+    const agreeTxt = {high:'All models agree',medium:'Models differ slightly',low:'Models disagree: please verify by hand',single:'Only one model answered'}[r.count_agreement]||'';
+    const agreeCls = {high:'ok',medium:'warn',low:'bad',single:'neutral'}[r.count_agreement]||'neutral';
+    const modelCounts = panel.filter(p=>p.ok).map(p=>`<span class="chip"><b>${esc(p.count)}</b> ${esc(p.label)}</span>`).join('');
+    const range = (r.count_range && r.count_range[0]!==r.count_range[1]) ? ` (range ${r.count_range[0]}-${r.count_range[1]})` : '';
+
     const rows=gems.map(g => `
       <tr>
         <td>${esc(g.id)}</td>
         <td><b>${esc(g.type)}</b><br><span class="meta">${esc(g.shape_cut)}</span></td>
         <td><span class="chip" style="padding:2px 10px"><i style="background:${dot(g.color)}"></i>${esc(g.color)}</span></td>
         <td>${esc((g.estimated_origin||[]).join(', '))}<br><span class="meta">confidence: ${esc(g.origin_confidence)}</span></td>
-        <td>${authTag(g.authenticity)}<br><span class="meta">confidence: ${esc(g.authenticity_confidence)}</span></td>
+        <td>${tag(g.treatment,treatCls(g.treatment))}<br><span class="meta">confidence: ${esc(g.treatment_confidence)}</span><br><span class="meta">${esc(g.treatment_indicators)}</span></td>
+        <td>${tag(g.authenticity,authCls(g.authenticity))}<br><span class="meta">confidence: ${esc(g.authenticity_confidence)}</span></td>
         <td>${esc(g.notes)}</td>
       </tr>`).join('');
 
+    const panelRows=panel.map(p=>`
+      <tr><td>${esc(p.label)}</td><td>${esc(p.model)}</td>
+      <td>${p.ok?tag('answered','ok'):tag('failed','bad')}</td>
+      <td>${p.ok?esc(p.count):'-'}</td><td>${esc(p.seconds)} s</td>
+      <td>${p.ok?'':esc(p.error)}</td></tr>`).join('');
+
     sheet.innerHTML = `
       <div class="sheet-head">
+        <h2>Yasiru Gems &amp; Jewellery: Gem Inspection Report</h2>
+        <div class="meta">${esc(new Date().toLocaleString())} &nbsp;|&nbsp; Photo quality: ${esc(r.image_quality||'n/a')} &nbsp;|&nbsp; ${esc(r.models_used)} AI model${r.models_used>1?'s':''} used</div>
+      </div>
+
+      <h3 class="sub" style="margin-top:0">1. Gem count</h3>
+      <div class="countbox">
+        <div class="bignum">${esc(r.consensus_count)}<small>AI consensus${esc(range)}</small></div>
         <div>
-          <h2>Yasiru Gems &amp; Jewellery: Gem Inspection Report</h2>
-          <div class="meta">${esc(now.toLocaleString())} &nbsp;|&nbsp; Photo quality: ${esc(r.image_quality||'n/a')}</div>
+          <div style="margin-bottom:8px">${tag(agreeTxt,agreeCls)}</div>
+          <div class="chips">${modelCounts}</div>
         </div>
-        <img class="repimg" src="${lastImgUrl}" alt="Inspected photo">
       </div>
 
-      <div class="stats">
-        <div class="stat"><small>Total gems</small><strong>${esc(r.total_count ?? gems.length)}</strong></div>
-        <div class="stat"><small>Gem types</small><strong>${types.length}</strong></div>
-        <div class="stat"><small>Colours</small><strong>${cols.length}</strong></div>
-        <div class="stat"><small>Possible origin countries</small><strong>${countries.length}</strong></div>
+      <div class="markbox">
+        <div class="verified">
+          <div>Your verified count: <strong id="verifiedNum">0</strong></div>
+          <span class="meta no-print">Tap a number to remove it. Tap empty space on the photo to add a missing stone.</span>
+        </div>
+        <div class="markstage" id="markstage"><img id="markimg" src="${lastImgUrl}" alt="Photo with numbered stone markers"></div>
+        <div class="row no-print">
+          <button class="btn ghost small" id="resetMarks" type="button">Reset to AI markers</button>
+          <button class="btn ghost small" id="clearMarks" type="button">Clear all and count by hand</button>
+        </div>
+        <p class="meta" style="margin-bottom:0">${r.points_from ? 'Markers suggested by '+esc(r.points_from)+'. They can be slightly off, so please check them.' : 'The models did not return stone positions. You can count by tapping each stone.'}</p>
       </div>
 
-      <h3 class="sub">Count by gem type</h3>
-      <div class="chips">${types.map(t=>`<span class="chip"><b>${esc(t.count)}</b> ${esc(t.type)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
+      <div class="grid2">
+        <div>
+          <h3 class="sub">2. Count by gem type</h3>
+          <div class="chips">${(r.summary_by_type||[]).map(t=>`<span class="chip"><b>${esc(t.count)}</b> ${esc(t.type)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
+        </div>
+        <div>
+          <h3 class="sub">3. Count by colour</h3>
+          <div class="chips">${(r.summary_by_colour||[]).map(c=>`<span class="chip"><i style="background:${dot(c.color)}"></i><b>${esc(c.count)}</b> ${esc(c.color)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
+        </div>
+      </div>
 
-      <h3 class="sub">Count by colour</h3>
-      <div class="chips">${cols.map(c=>`<span class="chip"><i style="background:${dot(c.color)}"></i><b>${esc(c.count)}</b> ${esc(c.color)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
+      <h3 class="sub">4. Origin probability (out of 100)</h3>
+      ${bars(r.origin,'origin')}
+      ${topLine(r.origin,'origin')}
 
-      <h3 class="sub">Likely origin countries</h3>
-      <div class="chips">${countries.map(c=>`<span class="chip">${esc(c)}</span>`).join('') || '<span class="meta">Could not estimate</span>'}</div>
+      <div class="grid2">
+        <div>
+          <h3 class="sub">5. Heated or unheated</h3>
+          ${bars(r.treatment,'treatment')}
+          ${topLine(r.treatment,'status')}
+        </div>
+        <div>
+          <h3 class="sub">6. Natural or synthetic</h3>
+          ${bars(r.authenticity,'authenticity')}
+          ${topLine(r.authenticity,'result')}
+        </div>
+      </div>
 
-      <h3 class="sub">Stone by stone</h3>
+      <h3 class="sub">7. Stone by stone</h3>
       <div class="tablewrap"><table>
-        <thead><tr><th>#</th><th>Type / cut</th><th>Colour</th><th>Estimated origin</th><th>Authenticity</th><th>Notes</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="6">No gemstones detected.</td></tr>'}</tbody>
+        <thead><tr><th>#</th><th>Type / cut</th><th>Colour</th><th>Estimated origin</th><th>Heat treatment</th><th>Authenticity</th><th>Notes</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="7">No gemstones detected.</td></tr>'}</tbody>
       </table></div>
+      <p class="meta">Stone by stone details come from ${esc(r.lead)}, the model whose count was closest to the consensus.</p>
 
-      <h3 class="sub">Overall remarks</h3>
+      ${instrumentHtml(r)}
+
+      <h3 class="sub">9. Overall remarks</h3>
       <p>${esc(r.overall_remarks)}</p>
 
-      <div class="note"><b>Please note:</b> This report is an AI visual estimate based on a photo only. To confirm origin and natural or synthetic status, get a certificate from a recognised gem laboratory (e.g. NGJA or GIA). <span class="meta">Model: ${esc(model)}</span></div>
+      <h3 class="sub">10. AI panel</h3>
+      <div class="tablewrap"><table style="min-width:640px">
+        <thead><tr><th>Provider</th><th>Model</th><th>Status</th><th>Count</th><th>Time</th><th>Message</th></tr></thead>
+        <tbody>${panelRows}</tbody>
+      </table></div>
+
+      <div class="note"><b>Please note:</b> This report is an AI estimate based on a photo only. Counts can be off by a few stones, and origin, heat treatment and natural or synthetic status cannot be proven from a photo. For a final decision, get a certificate from a recognised gem laboratory (e.g. NGJA or GIA).</div>
     `;
     report.classList.add('on');
+    wireMarkers(r.stone_points||[]);
     report.scrollIntoView({behavior:'smooth',block:'start'});
   }
 
   $('printBtn').addEventListener('click', () => window.print());
   $('jsonBtn').addEventListener('click', () => {
-    if(!lastReport) return;
+    if(!lastData) return;
+    const out=Object.assign({}, lastData, {verified_count:markers.length, verified_markers:markers});
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([JSON.stringify(lastReport,null,2)],{type:'application/json'}));
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
     a.download='gem-report.json'; a.click();
   });
 })();
