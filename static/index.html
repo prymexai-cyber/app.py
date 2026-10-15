@@ -132,6 +132,18 @@ details.manual[open] summary::before{content:'\2212 '}
 .card{border:1.5px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
 .card ul{margin:6px 0 0;padding-left:20px}
 .match{display:grid;grid-template-columns:minmax(140px,1.4fr) 3fr 52px;gap:10px;align-items:center;margin:8px 0;font-size:.93rem}
+/* PDF export: light colours, A4 width */
+body.pdfmode{--bg:#fff;--panel:#fff;--ink:#0F1B2D;--muted:#4A5563;--line:#CBD5DE;--sapphire:#2347B5;--ruby:#A8143A;--emerald:#0B7A5A;--amber:#9A6200}
+#pdfbox{width:760px;margin:0;border:0;border-radius:0;padding:8px;background:#fff;color:#0F1B2D}
+#pdfbox .no-print{display:none!important}
+#pdfbox table{min-width:0;font-size:.74rem}
+#pdfbox .tablewrap{overflow:visible}
+#pdfbox .markstage{cursor:default}
+#pdfbox .markstage img{max-height:420px}
+#pdfbox .grid2{grid-template-columns:1fr 1fr}
+#pdfbox .track{background:#E3E9EF}
+#pdfbox th{background:#EEF2F6}
+#pdfbox .note{background:#FBF3E4}
 /* camera modal */
 .modal{position:fixed;inset:0;background:rgba(4,8,16,.92);display:none;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:16px}
 .modal.on{display:flex}
@@ -215,7 +227,8 @@ details.manual[open] summary::before{content:'\2212 '}
   <section id="report" aria-live="polite">
     <div class="sheet" id="sheet"></div>
     <div class="row no-print">
-      <button class="btn" id="printBtn" type="button">Print / Save as PDF</button>
+      <button class="btn" id="pdfBtn" type="button">Download PDF</button>
+      <button class="btn ghost" id="printBtn" type="button">Print</button>
       <button class="btn ghost" id="jsonBtn" type="button">Download JSON</button>
     </div>
   </section>
@@ -514,6 +527,7 @@ details.manual[open] summary::before{content:'\2212 '}
       </div>
 
       <h3 class="sub">4. Origin probability (out of 100)</h3>
+      <p class="meta" style="margin-top:-4px">Rough guess from the photo. Origin can only be confirmed by a gem laboratory.</p>
       ${bars(r.origin,'origin')}
       ${topLine(r.origin,'origin')}
 
@@ -556,6 +570,77 @@ details.manual[open] summary::before{content:'\2212 '}
   }
 
   $('printBtn').addEventListener('click', () => window.print());
+
+  /* ---------- direct PDF download (no print dialog) ---------- */
+  const LIBS={
+    canvas:['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+            'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'],
+    pdf:['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+         'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js']};
+  function loadScript(src){ return new Promise((ok,fail)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=fail; document.head.appendChild(s); }); }
+  async function loadOne(list,ready){
+    if(ready()) return;
+    for(const src of list){ try{ await loadScript(src); if(ready()) return; }catch(_){} }
+    throw new Error('PDF library could not load');
+  }
+  const waitImages = el => Promise.all([...el.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r=>{ i.onload=i.onerror=r; })));
+
+  $('pdfBtn').addEventListener('click', async () => {
+    if(!lastData) return;
+    const btn=$('pdfBtn'), old=btn.textContent; btn.disabled=true; btn.textContent='Making PDF...'; clearError();
+    let holder=null;
+    try{
+      await loadOne(LIBS.canvas, ()=>window.html2canvas);
+      await loadOne(LIBS.pdf, ()=>window.jspdf && window.jspdf.jsPDF);
+      document.body.classList.add('pdfmode');
+      // a clean, light copy of the report, laid out at A4 width in the top-left corner
+      holder=document.createElement('div');
+      holder.style.cssText='position:absolute;left:0;top:0;width:760px;z-index:-5;pointer-events:none';
+      holder.innerHTML='<div id="pdfbox" class="sheet">'+sheet.innerHTML+'</div>';
+      holder.querySelectorAll('#pdfbox [id]').forEach(n=>n.removeAttribute('id'));
+      document.body.appendChild(holder);
+      const box=holder.firstChild;
+      await waitImages(box);
+      // safe places to start a new page: the top of each block
+      const top0=box.getBoundingClientRect().top;
+      const breaks=[...box.querySelectorAll('h2,h3,.countbox,.markbox,.bar,.match,.card,tr,.note,.grid2,p,.chips,.tablewrap')]
+        .map(n=>n.getBoundingClientRect().top-top0).filter(y=>y>0).sort((a,b)=>a-b);
+      const scale=2;
+      const canvas=await html2canvas(box,{scale,backgroundColor:'#ffffff',useCORS:true,logging:false,
+        windowWidth:760,scrollX:0,scrollY:-window.scrollY});
+      const {jsPDF}=window.jspdf;
+      const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+      const margin=10, pageW=210-2*margin, pageH=297-2*margin;
+      const pxPerMm=canvas.width/pageW;              // canvas pixels per mm
+      const pageHpx=pageH*pxPerMm, total=canvas.height;
+      let y=0, first=true;
+      while(y < total-2){
+        let end=Math.min(y+pageHpx,total);
+        if(end<total){
+          const cands=breaks.map(b=>b*scale).filter(b=>b>y+pageHpx*0.5 && b<=end);
+          if(cands.length) end=cands[cands.length-1];
+        }
+        const slice=document.createElement('canvas'); slice.width=canvas.width; slice.height=Math.ceil(end-y);
+        const ctx=slice.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,slice.width,slice.height);
+        ctx.drawImage(canvas,0,y,canvas.width,end-y,0,0,canvas.width,end-y);
+        if(!first) doc.addPage();
+        doc.addImage(slice.toDataURL('image/jpeg',0.92),'JPEG',margin,margin,pageW,(end-y)/pxPerMm);
+        first=false; y=end;
+      }
+      const pages=doc.getNumberOfPages();
+      for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120);
+        doc.text(`Yasiru Gems & Jewellery  |  page ${i} of ${pages}`,105,292,{align:'center'}); }
+      const d=new Date(), pad=n=>String(n).padStart(2,'0');
+      doc.save(`Yasiru-Gems-Report-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.pdf`);
+    }catch(e){
+      console.error('PDF error:', e);
+      showError('Could not make the PDF on this device. Use the Print button and choose "Save as PDF".');
+    }finally{
+      if(holder) holder.remove();
+      document.body.classList.remove('pdfmode'); btn.disabled=false; btn.textContent=old;
+    }
+  });
+
   $('jsonBtn').addEventListener('click', () => {
     if(!lastData) return;
     const out=Object.assign({}, lastData, {verified_count:markers.length, verified_markers:markers});
