@@ -232,7 +232,7 @@ PROBABILITY RULES:
 - Origin: only use countries that are realistic for the stone type (for blue sapphire: Sri Lanka, Madagascar, Myanmar, Thailand, Australia, Kashmir/India, Tanzania, Montana USA ...). If the photo gives little evidence, spread the probability.
 - Treatment clues: unheated stones often show intact rutile silk, natural colour zoning, fingerprint inclusions, uneven colour; heated stones often show dissolved or broken silk, discoid stress fractures, glassy patches, very even colour and clean surface; diffusion or fracture-filled stones show colour concentrated at facet edges, flash effect in fractures, or bubbles in fillings.
 
-WEIGHT RULE: give visual_weight_estimate numbers ONLY if a size reference (ruler, coin, standard object) is clearly visible in the photo. Otherwise set min_ct and max_ct to null and explain in basis.
+WEIGHT RULE: give visual_weight_estimate numbers ONLY if a size reference (ruler, coin, standard object) is clearly visible in the photo. A hand, palm, finger or tray is NOT a size reference. Otherwise set min_ct and max_ct to null and explain in basis.
 
 INSTRUMENT DATA: if the user message contains OWNER-SUPPLIED READINGS, trust the numeric readings (refractive index, specific gravity, weight, thermal tester, UV) over visual impressions, but treat the owner's claim about the stone as unverified. A thermal diamond tester only separates diamond and moissanite from other materials; it says nothing about heat treatment of coloured stones and cannot separate natural from lab-grown diamond.
 
@@ -583,7 +583,7 @@ def oai_caller(url, token_param="max_completion_tokens", use_temp=True, headers=
         h = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
         h.update(headers or {})
         target = url() if callable(url) else url
-        r = requests.post(target, headers=h, json=payload, timeout=timeout)
+        r = requests.post(target, headers=h, json=payload, timeout=timeout, allow_redirects=False)
         if r.status_code != 200:
             return r.status_code, "", err_text(r)
         msg = r.json()["choices"][0]["message"]
@@ -754,7 +754,10 @@ def normalize_report(rep):
     if isinstance(vw, dict):
         lo, hi = vw.get("min_ct"), vw.get("max_ct")
         try:
-            if lo is not None and hi is not None:
+            basis = as_str(vw.get("basis")).lower()
+            has_ref = re.search(r"ruler|coin|scale|caliper|calliper|gauge|millimet|\bmm\b|\bcm\b|grid|reference card", basis)
+            body_ref = re.search(r"palm|hand|finger|thumb|skin|crease", basis)
+            if lo is not None and hi is not None and has_ref and not body_ref:
                 visual = {"min_ct": round(float(lo), 2), "max_ct": round(float(hi), 2), "basis": as_str(vw.get("basis"))}
         except Exception:
             visual = None
@@ -800,6 +803,12 @@ def run_provider(name, b64, user_text, stop_at=None):
                 break
             try:
                 status, text, err = caller(key, model, b64, user_text, timeout=min(TIMEOUT, left - 2))
+            except requests.exceptions.JSONDecodeError:
+                last_err = "the service sent a non-JSON reply: the key/token is probably wrong or has no access"
+                continue
+            except requests.Timeout:
+                last_err = "timed out"
+                continue
             except requests.RequestException as e:
                 last_err = f"network error: {type(e).__name__}"
                 continue
