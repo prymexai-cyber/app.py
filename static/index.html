@@ -207,7 +207,7 @@ details.manual[open] summary::before{content:'\2212 '}
       <button class="btn" id="analyzeBtn" type="button">Analyze gems</button>
       <button class="btn ghost" id="clearBtn" type="button">Choose another photo</button>
     </div>
-    <div class="busytext" id="busytext">Several AI models are inspecting your photo at the same time. This can take up to a minute.</div>
+    <div class="busytext" id="busytext">Several AI models are inspecting your photo at the same time. This usually takes 15 to 50 seconds.</div>
   </section>
 
   <div class="err" id="err" role="alert"></div>
@@ -332,7 +332,7 @@ details.manual[open] summary::before{content:'\2212 '}
     const fd=new FormData(); fd.append('image', currentBlob, 'gems.jpg'); fd.append('manual', JSON.stringify(collectManual()));
     try{
       const r=await fetch('/api/analyze',{method:'POST',body:fd});
-      let data; try{ data=await r.json(); }catch(_){ throw new Error('The server took too long to answer. Please try again.'); }
+      let data; try{ data=await r.json(); }catch(_){ throw new Error('The server did not send a proper answer (HTTP '+r.status+'). Wait 30 seconds and try again. If it keeps happening, check the Render Logs.'); }
       if(!r.ok) throw new Error(data.error || 'Analysis failed. Please try again.');
       lastData=data;
       renderReport(data);
