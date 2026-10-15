@@ -15,7 +15,7 @@ import random
 import re
 import statistics
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
@@ -24,16 +24,21 @@ from PIL import Image, ImageOps
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
-TIMEOUT = 55  # seconds per single AI call
-DEADLINE = 85  # seconds: the whole analysis must answer before this (Render cuts slow requests)
+TIMEOUT = 40  # seconds per single AI call
+DEADLINE = 50  # seconds: the whole analysis always answers before this
+GRACE = 10  # once 2 models have answered, wait at most this many extra seconds for the rest
 
 
 # --------------------------------------------------------------------------
 # Provider configuration (Render environment variables)
 # --------------------------------------------------------------------------
 def env_keys(*names):
+    """Read keys from NAME, and also NAME2 ... NAME9 / NAME_2 ... NAME_9 (e.g. GROQ_API_KEY2)."""
     found = []
+    variants = []
     for n in names:
+        variants += [n] + [f"{n}{i}" for i in range(2, 10)] + [f"{n}_{i}" for i in range(2, 10)]
+    for n in variants:
         for k in re.split(r"[,\s;]+", os.environ.get(n, "")):
             k = k.strip()
             if k and k not in found:
@@ -64,7 +69,7 @@ PROVIDERS = {
     "groq": {
         "label": "Groq",
         "keys": env_keys("GROQ_API_KEYS", "GROQ_API_KEY"),
-        "models": model_list("GROQ_MODEL", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"),
+        "models": model_list("GROQ_MODEL", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct"),
     },
     "xai": {
         "label": "xAI Grok",
@@ -562,7 +567,7 @@ def err_text(resp):
 
 def oai_caller(url, token_param="max_completion_tokens", use_temp=True, headers=None):
     """Build a caller for any OpenAI-compatible chat completions API."""
-    def call(key, model, b64, user_text):
+    def call(key, model, b64, user_text, timeout=TIMEOUT):
         payload = {
             "model": model, token_param: 8000,
             "messages": [
@@ -578,7 +583,7 @@ def oai_caller(url, token_param="max_completion_tokens", use_temp=True, headers=
         h = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
         h.update(headers or {})
         target = url() if callable(url) else url
-        r = requests.post(target, headers=h, json=payload, timeout=TIMEOUT)
+        r = requests.post(target, headers=h, json=payload, timeout=timeout)
         if r.status_code != 200:
             return r.status_code, "", err_text(r)
         msg = r.json()["choices"][0]["message"]
@@ -611,7 +616,7 @@ def openrouter_free_vision(key):
     if _or_cache["ids"] and time.time() - _or_cache["t"] < 3600:
         return _or_cache["ids"]
     try:
-        r = requests.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"}, timeout=20)
+        r = requests.get("https://openrouter.ai/api/v1/models", headers={"Authorization": f"Bearer {key}"}, timeout=8)
         ids = [m["id"] for m in r.json().get("data", [])
                if str(m.get("id", "")).endswith(":free")
                and "image" in ((m.get("architecture") or {}).get("input_modalities") or [])]
@@ -632,7 +637,7 @@ def models_for(name, cfg):
     return models
 
 
-def call_gemini(key, model, b64, user_text):
+def call_gemini(key, model, b64, user_text, timeout=TIMEOUT):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -643,14 +648,14 @@ def call_gemini(key, model, b64, user_text):
         "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16000, "responseMimeType": "application/json"},
     }
     r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-                      json=body, timeout=TIMEOUT)
+                      json=body, timeout=timeout)
     if r.status_code != 200:
         return r.status_code, "", err_text(r)
     parts = r.json()["candidates"][0]["content"]["parts"]
     return 200, "".join(p.get("text", "") for p in parts if not p.get("thought")), ""
 
 
-def call_anthropic(key, model, b64, user_text):
+def call_anthropic(key, model, b64, user_text, timeout=TIMEOUT):
     body = {
         "model": model, "max_tokens": 8000, "system": SYSTEM_PROMPT,
         "messages": [{"role": "user", "content": [
@@ -660,7 +665,7 @@ def call_anthropic(key, model, b64, user_text):
     }
     r = requests.post("https://api.anthropic.com/v1/messages",
                       headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                      json=body, timeout=TIMEOUT)
+                      json=body, timeout=timeout)
     if r.status_code != 200:
         return r.status_code, "", err_text(r)
     return 200, "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text"), ""
@@ -772,10 +777,11 @@ def normalize_report(rep):
 # --------------------------------------------------------------------------
 # One provider: rotate keys, fall back through models
 # --------------------------------------------------------------------------
-def run_provider(name, b64, user_text):
+def run_provider(name, b64, user_text, stop_at=None):
     cfg = PROVIDERS[name]
     caller = CALLERS[name]
     started = time.time()
+    stop_at = stop_at or started + DEADLINE
     keys = cfg["keys"][:]
     random.shuffle(keys)
     last_err = "unknown error"
@@ -785,9 +791,15 @@ def run_provider(name, b64, user_text):
     for model in models:
         last_model = model
         model_missing = False
+        out_of_time = False
         for key in keys:
+            left = stop_at - time.time()
+            if left < 8:
+                last_err = last_err if last_err != "unknown error" else "ran out of time"
+                out_of_time = True
+                break
             try:
-                status, text, err = caller(key, model, b64, user_text)
+                status, text, err = caller(key, model, b64, user_text, timeout=min(TIMEOUT, left - 2))
             except requests.RequestException as e:
                 last_err = f"network error: {type(e).__name__}"
                 continue
@@ -806,7 +818,7 @@ def run_provider(name, b64, user_text):
             if status == 404:
                 model_missing = True
                 break
-        if not (model_missing or cfg.get("try_all_models")):
+        if out_of_time or not (model_missing or cfg.get("try_all_models")):
             break
     return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
             "error": last_err, "ms": int((time.time() - started) * 1000)}
@@ -986,21 +998,35 @@ def analyze():
     user_text = USER_PROMPT + manual_to_text(manual)
 
     results = []
+    started = time.time()
+    stop_at = started + DEADLINE
     pool = ThreadPoolExecutor(max_workers=len(active))
-    futures = {pool.submit(run_provider, n, b64, user_text): n for n in active}
+    pending = {pool.submit(run_provider, n, b64, user_text, stop_at) for n in active}
+    grace_until = None
     try:
-        for f in as_completed(futures, timeout=DEADLINE):
-            results.append(f.result())
-    except Exception:
-        pass  # some providers were too slow: continue with the ones that answered
+        while pending:
+            limit = stop_at if grace_until is None else min(stop_at, grace_until)
+            left = limit - time.time()
+            if left <= 0:
+                break
+            done, pending = wait(pending, timeout=left, return_when=FIRST_COMPLETED)
+            for f in done:
+                try:
+                    results.append(f.result())
+                except Exception:
+                    pass
+            # two good answers are enough for a consensus: don't wait long for slow models
+            if grace_until is None and sum(1 for r in results if r["ok"]) >= 2:
+                grace_until = time.time() + GRACE
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
+    waited = round(time.time() - started)
 
     answered = {r["provider"] for r in results}
     for n in active:
         if n not in answered:
             results.append({"provider": n, "label": PROVIDERS[n]["label"], "model": (PROVIDERS[n]["models"] or ["auto"])[0],
-                            "ok": False, "error": f"too slow (no answer within {DEADLINE} s)", "ms": DEADLINE * 1000})
+                            "ok": False, "error": f"too slow (skipped after {waited} s)", "ms": waited * 1000})
 
     panel = [{
         "provider": r["provider"], "label": r["label"], "model": r["model"], "ok": r["ok"],
