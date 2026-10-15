@@ -24,7 +24,8 @@ from PIL import Image, ImageOps
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
-TIMEOUT = 80  # seconds per AI call
+TIMEOUT = 55  # seconds per single AI call
+DEADLINE = 85  # seconds: the whole analysis must answer before this (Render cuts slow requests)
 
 
 # --------------------------------------------------------------------------
@@ -985,13 +986,21 @@ def analyze():
     user_text = USER_PROMPT + manual_to_text(manual)
 
     results = []
-    with ThreadPoolExecutor(max_workers=len(active)) as pool:
-        futures = {pool.submit(run_provider, n, b64, user_text): n for n in active}
-        try:
-            for f in as_completed(futures, timeout=150):
-                results.append(f.result())
-        except Exception:
-            pass
+    pool = ThreadPoolExecutor(max_workers=len(active))
+    futures = {pool.submit(run_provider, n, b64, user_text): n for n in active}
+    try:
+        for f in as_completed(futures, timeout=DEADLINE):
+            results.append(f.result())
+    except Exception:
+        pass  # some providers were too slow: continue with the ones that answered
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    answered = {r["provider"] for r in results}
+    for n in active:
+        if n not in answered:
+            results.append({"provider": n, "label": PROVIDERS[n]["label"], "model": (PROVIDERS[n]["models"] or ["auto"])[0],
+                            "ok": False, "error": f"too slow (no answer within {DEADLINE} s)", "ms": DEADLINE * 1000})
 
     panel = [{
         "provider": r["provider"], "label": r["label"], "model": r["model"], "ok": r["ok"],
