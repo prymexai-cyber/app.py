@@ -1536,46 +1536,94 @@ def analyse_stone(b64):
             "metrics": metrics}
 
 
-def expert_once(name, images, text, stop_at):
+def shrink_b64(b64, side=640):
+    try:
+        im = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+        im.thumbnail((side, side))
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode()
+    except Exception:
+        return b64
+
+
+def expert_once(name, images, text, stop_at, errors):
     cfg = PROVIDERS[name]
     caller = CALLERS[name]
+    if cfg.get("compact"):
+        images = [shrink_b64(x) for x in images[:2]]
+    images = images[:cfg.get("max_images", 5)]
     for model in models_for(name, cfg)[:4]:
         for key in cfg["keys"][:2]:
-            left = stop_at - time.time()
-            if left < 10:
-                return None
-            try:
-                status, out, err = caller(key, model, images[:cfg.get("max_images", 5)], text,
-                                          timeout=min(cfg.get("timeout", TIMEOUT), left - 3), system=EXPERT_PROMPT)
-            except Exception:
-                break
-            if status == 200:
+            tries = 0
+            while tries < 2:
+                tries += 1
+                left = stop_at - time.time()
+                if left < 10:
+                    errors.append(f"{cfg['label']}: out of time")
+                    return None
                 try:
-                    j = extract_json(out)
-                    a = j.get("authenticity") or {}
-                    if not isinstance(a, dict):
-                        break
-                    j["_model"] = f"{cfg['label']} {model}"
-                    return j
-                except Exception:
+                    status, out, err = caller(key, model, images, text,
+                                              timeout=min(cfg.get("timeout", TIMEOUT), left - 3), system=EXPERT_PROMPT)
+                except requests.Timeout:
+                    errors.append(f"{model}: timed out")
+                    status, out, err = 0, "", "timeout"
                     break
-            if status in (401, 403, 404, 400) or status >= 500:
+                except Exception as e:
+                    errors.append(f"{model}: {type(e).__name__}")
+                    status, out, err = 0, "", "error"
+                    break
+                if status == 200:
+                    try:
+                        j = extract_json(out)
+                        if isinstance(j.get("authenticity"), dict):
+                            j["_model"] = f"{cfg['label']} {model}"
+                            return j
+                        errors.append(f"{model}: answer without verdict")
+                    except Exception:
+                        errors.append(f"{model}: invalid JSON")
+                    break
+                errors.append(f"{model}: {status} {str(err)[:80]}")
+                if status in (413, 429) and len(images) > 1 and re.search(r"too large|tokens|size", err or "", re.I):
+                    images = images[:1]
+                    continue
                 break
+            if status in (401, 403):
+                continue  # try the next key
+            if status != 429:
+                break  # next model
     return None
 
 
 def run_expert(images, text, stop_at):
-    """Second opinion focused only on natural vs synthetic, using the best model that answers."""
+    """Forensic second opinion: ask two providers at the same time and keep the first good answer."""
     order = [p for p in ("gemini", "anthropic", "openai", "xai", "mistral", "groq", "github", "openrouter", "custom")
              if PROVIDERS[p]["keys"]]
-    for name in order:
-        if stop_at - time.time() < 12:
-            break
-        imgs = images[:2] if PROVIDERS[name].get("compact") else images
-        res = expert_once(name, imgs, text, stop_at)
-        if res:
-            return res
-    return None
+    errors = []
+    if not order:
+        return {"_errors": ["no provider"]}
+    pool = ThreadPoolExecutor(max_workers=2)
+    try:
+        queue = list(order)
+        running = {pool.submit(expert_once, queue.pop(0), images, text, stop_at, errors)}
+        if queue:
+            running.add(pool.submit(expert_once, queue.pop(0), images, text, stop_at, errors))
+        while running:
+            done, running = wait(running, timeout=max(1, stop_at - time.time()), return_when=FIRST_COMPLETED)
+            if not done:
+                break
+            for f in done:
+                try:
+                    res = f.result()
+                except Exception:
+                    res = None
+                if res:
+                    return res
+                if queue and stop_at - time.time() > 15:
+                    running.add(pool.submit(expert_once, queue.pop(0), images, text, stop_at, errors))
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return {"_errors": errors[-4:] or ["no answer"]}
 
 
 def expert_dists(ex):
@@ -1898,6 +1946,8 @@ def build_consensus(results, manual, n_images=1, n_frames=0, expert=None, metric
 
     variety = rep["identification"]["variety"] or lead_type or "Gemstone"
     sp_clean = re.sub(r"\s*\(.*\)$", "", species_for_gate or rep["identification"]["species"] or "")
+    if sp_clean.lower() in ("undetermined", "unknown", "n/a", "none"):
+        sp_clean = ""
     process = gate.get("synthetic_process") if gate.get("synthetic_process") not in ("", "unknown", "n/a") else ""
     word = {"strong": "", "probable": "probably ", "indicative": "most likely "}[strength]
     if top_auth == "Natural":
@@ -2129,8 +2179,11 @@ def analyze():
         pool.shutdown(wait=False, cancel_futures=True)
     waited = round(time.time() - started)
     try:
-        expert = expert_future.result(timeout=0) if expert_future.done() else None
-    except Exception:
+        expert = expert_future.result(timeout=0) if expert_future.done() else {"_errors": ["still running at the deadline"]}
+    except Exception as e:
+        expert = {"_errors": [type(e).__name__]}
+    expert_err = "; ".join(expert.get("_errors", [])) if expert and "_errors" in expert else ""
+    if expert_err:
         expert = None
 
     answered = {r["provider"] for r in results}
@@ -2157,7 +2210,7 @@ def analyze():
     panel.append({"provider": "forensic", "label": "Forensic check", "model": (expert or {}).get("_model", "-"),
                   "ok": bool(expert), "count": None,
                   "species": str(((expert or {}).get("authenticity") or {}).get("verdict", "")).capitalize(),
-                  "error": "" if expert else "no forensic answer in time", "seconds": None})
+                  "error": "" if expert else (expert_err or "no answer"), "seconds": None})
     report = build_consensus(results, manual, len(images), n_frames, expert, metrics)
     if probes:
         report["closeup"] = {"crop": "data:image/jpeg;base64," + probes[0]["preview_crop"],
