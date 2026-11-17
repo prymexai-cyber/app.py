@@ -314,6 +314,64 @@ OBS = {
 }
 
 TREAT_KEYS = ("Unheated", "Heated", "Diffusion-treated / filled")
+NAT_OBS = {"silk_intact", "fingerprints", "mineral_crystals", "zoning_angular", "three_phase", "horsetail", "lily_pad"}
+SYN_OBS = {"curved_striae", "plato_lines", "chevron", "nailhead", "flux", "bubbles", "swirl"}
+HEAT_OBS = {"silk_intact", "silk_broken", "discoid", "pits", "flash_effect", "edge_color", "glass_filled"}
+# materials that are routinely made in a laboratory, so a natural call needs real evidence
+OFTEN_SYNTHETIC = {"Corundum (sapphire / ruby)", "Spinel", "Beryl (emerald / aquamarine / morganite)",
+                   "Chrysoberyl (alexandrite / cat's eye)", "Quartz (amethyst / citrine / smoky)", "Diamond",
+                   "Opal", "Turquoise", "Moissanite", "Garnet", "Tourmaline", "Topaz"}
+
+
+def evidence_gate(manual, ok, species, authenticity, treatment, sim_or_moiss):
+    """Decide whether natural/synthetic and heated/unheated can honestly be called at all."""
+    m = manual or {}
+    obs = set(m.get("observations", []))
+    # inclusions the AI panel says it can see: synthetic signs count from one model, natural signs need two
+    seen = Counter(c for r in ok for c in set(r["report"].get("visible_inclusions") or []))
+    ai_syn = {c for c, n in seen.items() if c in SYN_OBS}
+    ai_nat = {c for c, n in seen.items() if c in NAT_OBS and n >= 2}
+    lab = bool(m.get("lab_text"))
+    spec = set(m.get("spectro", []))
+    auth_basis = sorted((obs & (NAT_OBS | SYN_OBS)) | ai_syn | ai_nat)
+    if lab:
+        auth_basis.append("lab data")
+    if spec & {"iron_450", "cobalt"} or (m.get("chelsea") in ("red", "pink")):
+        auth_basis.append("spectroscope / filter")
+    if sim_or_moiss:
+        auth_basis.append("instrument identification")
+    if m.get("magnet") in ("weak", "strong") and "Diamond" in (species or ""):
+        auth_basis.append("magnet")
+    treat_basis = sorted((obs & HEAT_OBS) | ({c for c in seen if c in HEAT_OBS and seen[c] >= 2}))
+    if lab:
+        treat_basis.append("lab data")
+
+    out = {"auth_status": "determined", "treat_status": "determined", "auth_basis": auth_basis, "treat_basis": treat_basis,
+           "ai_seen": sorted(seen)}
+    if ai_syn and not (obs & NAT_OBS):
+        # the photos show synthetic growth features: push the odds towards synthetic
+        a = canon(authenticity, "a") or {k: 33.3 for k in AUTH_KEYS}
+        a = {k: max(v, 1.0) for k, v in a.items()}
+        a["Synthetic / lab-grown"] *= 6
+        a["Natural"] *= 0.25
+        authenticity = finish_dist(a)
+    if not auth_basis:
+        out["auth_status"] = "undetermined"
+        a = canon(authenticity, "a") or {k: 33.3 for k in AUTH_KEYS}
+        common = species in OFTEN_SYNTHETIC
+        prior = ({"Natural": 45, "Synthetic / lab-grown": 45, "Glass / imitation": 10} if common
+                 else {"Natural": 55, "Synthetic / lab-grown": 25, "Glass / imitation": 20})
+        total = sum(a.values()) or 1
+        a = {k: 0.15 * a.get(k, 0) * 100 / total + 0.85 * prior[k] for k in AUTH_KEYS}
+        authenticity = finish_dist(a)
+    if not treat_basis:
+        out["treat_status"] = "undetermined"
+        t = canon(treatment, "t") or {k: 33.3 for k in TREAT_KEYS}
+        total = sum(t.values()) or 1
+        prior = {"Unheated": 40, "Heated": 50, "Diffusion-treated / filled": 10}
+        t = {k: 0.3 * t.get(k, 0) * 100 / total + 0.7 * prior[k] for k in TREAT_KEYS}
+        treatment = finish_dist(t)
+    return out, authenticity, treatment
 AUTH_KEYS = ("Natural", "Synthetic / lab-grown", "Glass / imitation")
 
 
@@ -366,7 +424,8 @@ Return exactly this shape:
     "pleochroism": "none | dichroic | trichroic | unknown",
     "chelsea": "none | red | pink | green | other | unknown",
     "ri": "number or range as text, or empty",
-    "sg": "number as text, or empty"
+    "sg": "number as text, or empty",
+    "visible_inclusions": ["ONLY codes you can clearly SEE in a magnified photo, from: silk_intact, silk_broken, discoid, fingerprints, mineral_crystals, zoning_angular, curved_striae, bubbles, swirl, flux, chevron, nailhead, three_phase, horsetail, lily_pad, very_clean, uniform_color, doubling, edge_color, flash_effect, glass_filled"]
   },
   "tests_used": [ {"method": "test name", "finding": "what was seen or measured", "meaning": "what it indicates"} ],
   "treatment_statement": "one formal report sentence, e.g. 'No indications of heating.' / 'Indications of heating.' / 'Indications of heating with minor residues in fissures.' / 'Clarity enhancement: minor amount of oil in fissures.' / 'Not determined on the basis of the tests performed.'",
@@ -423,6 +482,13 @@ FOLLOW-UP QUESTIONS: ask 3-6 short, practical questions in the REPORT LANGUAGE w
 
 INSTRUMENT DATA: trust the client's numeric readings (RI, BR, SG, weight) and instrument results over visual impressions, but treat the client's claim about the stone as unverified. Fill "interpreted_tests" from free-text observations.
 
+NATURAL VERSUS SYNTHETIC (most common mistake - read carefully):
+- Synthetic corundum (flame-fusion / Verneuil, also flux and hydrothermal), synthetic spinel, synthetic emerald, synthetic alexandrite, synthetic quartz, lab-grown diamond and synthetic opal have the SAME colour, RI, SG, pleochroism and look as natural stones. A normal photo, a dichroscope, RI or SG can NEVER separate them.
+- Synthetic blue sapphire is cheap and extremely common in the trade. A clean, evenly coloured, vivid stone with no visible inclusions is a WARNING SIGN for synthetic, not evidence of natural.
+- Only say "likely natural" with medium/high confidence if a magnified image clearly shows natural inclusions (intact rutile silk, angular growth zoning, mineral crystals, healed fingerprints, three-phase, horsetail, lily-pads) or the client reports them or lab data proves it. Only say "likely synthetic" if curved striae, gas bubbles, Plato lines, flux, chevron growth, nail-heads or cobalt bands are seen or reported.
+- Otherwise authenticity MUST be "cannot determine" with low confidence, natural_or_synthetic MUST be "Undetermined", and the authenticity probabilities must stay close to even (no class above 60). Never invent inclusions you cannot actually see; a stone held in tweezers at normal magnification does not show inclusions.
+- Heat treatment works the same way: without magnified inclusion evidence, FTIR or other lab data, treatment is "cannot determine".
+
 HONESTY RULES:
 - Photos alone can never prove origin, heat treatment or natural/synthetic status. Calibrate your confidence to the evidence actually available and never claim certainty you do not have. Name exactly which test would settle each open question, and use "not determined" wording in treatment_statement and origin_statement when the evidence is insufficient.
 - If the images contain no gemstones, return total_count 0, empty lists, and explain in overall_remarks.
@@ -438,7 +504,7 @@ COMPACT_PROMPT = """You are a senior gemmologist. Inspect the gemstone photo(s) 
 "tests_used":[{"method":"","finding":"","meaning":""}],"treatment_statement":"","origin_statement":"","comments":"","recommended_lab_tests":[""],"overall_remarks":"","conclusion":"",
 "client_language":{"name":"","reasoning":"","conclusion":""},
 "follow_up_questions":[{"id":"q1","question":"","why":"","options":[""]}]}
-Rules: write everything in formal British English EXCEPT client_language and follow_up_questions, which use the REPORT LANGUAGE. Each probability list adds up to 100. Trust the client's RI/SG/instrument readings over the photo; the client may write in any language. Consider every gem species, synthetics, simulants and composites. Use only realistic origin countries. Ask 3-5 follow-up questions with short answer options (include "not tested"). Photos cannot prove origin or treatment: keep confidence honest and say which lab test would settle it."""
+Rules: natural vs synthetic and heated vs unheated can NOT be judged from normal photos, colour, RI, SG or pleochroism: synthetic sapphire/spinel/emerald look identical. Without clearly visible or reported inclusions (natural: silk, crystals, fingerprints, angular zoning; synthetic: curved striae, gas bubbles, flux, chevron) or lab data, set authenticity and treatment to "cannot determine", natural_or_synthetic "Undetermined", and keep probabilities near even. A clean vivid stone is a warning sign for synthetic. Never invent inclusions. In interpreted_tests add "visible_inclusions":[codes you clearly see: silk_intact, fingerprints, mineral_crystals, zoning_angular, curved_striae, bubbles, flux, chevron, very_clean]. Write everything in formal British English EXCEPT client_language and follow_up_questions, which use the REPORT LANGUAGE. Each probability list adds up to 100. Trust the client's RI/SG/instrument readings over the photo; the client may write in any language. Consider every gem species, synthetics, simulants and composites. Use only realistic origin countries. Ask 3-5 follow-up questions with short answer options (include "not tested"). Photos cannot prove origin or treatment: keep confidence honest and say which lab test would settle it."""
 
 USER_PROMPT = "Inspect the gemstone images ({n} image(s), image 1 = main photo) and return the JSON report. REPORT LANGUAGE: {lang}."
 
@@ -1300,6 +1366,8 @@ def normalize_report(rep):
             "reasoning": as_str(ident.get("reasoning")),
         },
         "interpreted": {k: as_str(it.get(k)).strip() for k in ("polariscope", "optic_figure", "pleochroism", "chelsea", "ri", "sg")},
+        "visible_inclusions": [v for v in (it.get("visible_inclusions") if isinstance(it.get("visible_inclusions"), list) else [])
+                               if isinstance(v, str) and v in OBS],
         "gems": gems,
         "origin": norm_dist(rep.get("lot_origin_probabilities"), "country"),
         "treatment": norm_dist(rep.get("lot_treatment_probabilities"), "status"),
@@ -1609,6 +1677,67 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
         treatment = finish_dist(t2) if t2 else treatment
         authenticity = finish_dist(a2) if a2 else authenticity
 
+    sim_or_moiss = bool(instrument.get("identity") and (instrument["identity"] in SIMULANTS or instrument["identity"] == "Moissanite"))
+    gate, authenticity, treatment = evidence_gate(manual, ok, final_species or (species_from_text(lead_type) or [""])[0],
+                                                  authenticity, treatment, sim_or_moiss)
+    gems_out = [dict(g) for g in rep["gems"]]
+    ident_ns = rep["identification"]["natural_or_synthetic"]
+    if gate["auth_status"] == "undetermined":
+        ident_ns = "Undetermined: natural or synthetic origin cannot be established without microscopic examination"
+        for g in gems_out:
+            g["authenticity"], g["authenticity_confidence"] = "cannot determine", "low"
+    if gate["treat_status"] == "undetermined":
+        for g in gems_out:
+            g["treatment"], g["treatment_confidence"] = "cannot determine", "low"
+
+    def drop_claims(text, words):
+        """Remove sentences that claim natural/synthetic or heat status when the evidence does not allow it."""
+        keep = [x for x in re.split(r"(?<=[.!?])\s+", text or "")
+                if not (re.search(words, x, re.I) and not re.search(r"natural or synthetic|cannot|not determin|undetermin|requires?|recommend", x, re.I))]
+        return " ".join(keep).strip()
+
+    conclusion, local = rep["conclusion"], dict(rep["local"])
+    comments, remarks, reasoning = rep["comments"], rep["overall_remarks"], rep["identification"]["reasoning"]
+    treat_stmt = rep["treatment_statement"]
+    if gate["auth_status"] == "undetermined":
+        claim = r"\bnatural\b|\bsynthetic\b|lab-grown|flame-fusion|verneuil"
+        comments, remarks, reasoning = (drop_claims(x, claim) for x in (comments, remarks, reasoning))
+        for g in gems_out:
+            g["notes"] = drop_claims(g["notes"], claim)
+        variety = rep["identification"]["variety"] or lead_type or "Gemstone"
+        sp = re.sub(r"\s*\(.*\)$", "", final_species or rep["identification"]["species"] or "")
+        conclusion = (f"{variety}{' (' + sp + ')' if sp and sp.lower() not in variety.lower() else ''}. "
+                      "Natural or synthetic origin could not be established from the images and data supplied: "
+                      "synthetic material of this kind has the same colour, refractive index and density. "
+                      "Microscopic examination (10x loupe or microscope) for diagnostic inclusions, or laboratory analysis, is required.")
+        local["conclusion"] = ""
+        local["reasoning"] = ""
+    origin_stmt = rep["origin_statement"]
+    top_auth = authenticity[0]["name"] if authenticity else ""
+    if gate["auth_status"] == "determined" and top_auth in ("Synthetic / lab-grown", "Glass / imitation"):
+        # the evidence says man-made: no natural claims and no geographic origin
+        claim = r"\bnatural\b"
+        comments, remarks, reasoning = (drop_claims(x, claim) for x in (comments, remarks, reasoning))
+        for g in gems_out:
+            g["authenticity"], g["authenticity_confidence"] = (
+                "likely synthetic/lab-grown" if top_auth.startswith("Synthetic") else "likely glass or imitation"), "medium"
+            g["estimated_origin"], g["notes"] = [], drop_claims(g["notes"], claim)
+        if re.search(claim, conclusion, re.I) or not conclusion:
+            variety = rep["identification"]["variety"] or lead_type or "Gemstone"
+            what = "laboratory-grown (synthetic)" if top_auth.startswith("Synthetic") else "an imitation"
+            conclusion = (f"The evidence ({', '.join(gate['auth_basis']).replace('_', ' ')}) indicates {what} material "
+                          f"with the appearance of {variety}.")
+            local["conclusion"], local["reasoning"] = "", ""
+        origin = []
+        origin_stmt = "Not applicable: the material shows features of laboratory growth or imitation."
+    elif gate["auth_status"] == "determined" and top_auth == "Natural" and re.search(r"\bsynthetic\b|lab-grown", conclusion, re.I) \
+            and not re.search(r"natural or synthetic", conclusion, re.I):
+        conclusion = drop_claims(conclusion, r"\bsynthetic\b|lab-grown")
+    if gate["treat_status"] == "undetermined":
+        treat_stmt = "Not determined on the basis of the tests performed."
+        if gate["auth_status"] != "undetermined":
+            conclusion = drop_claims(conclusion, r"\bunheated\b|\bheated\b|no indications of heat")
+
     ev = evidence_level(manual, n_images, n_frames)
     ai_conf = [r["report"]["identification"]["confidence"] for r in ok if r["report"]["identification"]["confidence"]]
     agree = votes_for / votes_total if votes_total else 0
@@ -1640,9 +1769,9 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
             "species": final_species or rep["identification"]["species"],
             "variety": rep["identification"]["variety"] or lead_type,
             "name_local": rep["identification"]["name_local"],
-            "reasoning": rep["identification"]["reasoning"],
+            "reasoning": reasoning,
             "group": rep["identification"]["group"],
-            "natural_or_synthetic": rep["identification"]["natural_or_synthetic"],
+            "natural_or_synthetic": ident_ns,
             "transparency": rep["identification"]["transparency"],
             "phenomenon": rep["identification"]["phenomenon"],
             "confidence": id_conf,
@@ -1650,7 +1779,8 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
             "panel_agreement": f"{votes_for}/{votes_total}",
         },
         "evidence": ev,
-        "gems": rep["gems"],
+        "gate": gate,
+        "gems": gems_out,
         "summary_by_type": rep["summary_by_type"],
         "summary_by_colour": rep["summary_by_colour"],
         "origin": origin,
@@ -1661,12 +1791,12 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
         "tests_used": rep["tests_used"],
         "questions": questions,
         "lab_tests": rep["lab_tests"],
-        "overall_remarks": rep["overall_remarks"],
-        "conclusion": rep["conclusion"],
-        "treatment_statement": rep["treatment_statement"],
-        "origin_statement": rep["origin_statement"],
-        "comments": rep["comments"],
-        "local": rep["local"],
+        "overall_remarks": remarks,
+        "conclusion": conclusion,
+        "treatment_statement": treat_stmt,
+        "origin_statement": origin_stmt,
+        "comments": comments,
+        "local": local,
         "lead": lead["label"],
         "models_used": len(ok),
         "images": n_images,
