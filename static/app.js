@@ -315,9 +315,24 @@ $('analyzeBtn').addEventListener('click', ()=>analyze(false));
 $('reBtn').addEventListener('click', ()=>analyze(false));
 
 /* ---------------- follow-up questions ---------------- */
+const LOUPE = [['curved_striae','lq_curved'],['bubbles','lq_bubbles'],['silk_intact','lq_silk'],['mineral_crystals','lq_crystals'],
+  ['fingerprints','lq_fingerprints'],['zoning_angular','lq_angular'],['very_clean','lq_clean']];
+function loupeQuestion(box){
+  const d=document.createElement('div'); d.className='q';
+  d.style.cssText='border:1.5px solid var(--amber);border-radius:12px;padding:12px;margin-bottom:8px';
+  d.innerHTML=`<div class="qt">${esc(T('lq_q'))}</div><div class="why">${esc(T('lq_note'))}</div>
+    <div class="opts">${LOUPE.map(([c,k])=>`<button type="button" class="opt" data-obs="${c}" aria-pressed="${!!document.querySelector('#obsChoice input[value="'+c+'"]:checked')}">${esc(T(k))}</button>`).join('')}</div>`;
+  d.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{
+    const cb=document.querySelector('#obsChoice input[value="'+b.dataset.obs+'"]'); if(!cb) return;
+    cb.checked=!cb.checked; b.setAttribute('aria-pressed', cb.checked?'true':'false'); updateFilled(); countAnswers();
+  }));
+  box.appendChild(d);
+}
 function renderQuestions(qs){
   const box=$('qlist'); box.innerHTML='';
-  $('qcard').classList.toggle('on', qs.length>0);
+  const needLoupe = lastData?.report?.gate?.auth_status==='undetermined';
+  $('qcard').classList.toggle('on', qs.length>0 || needLoupe);
+  if(needLoupe) loupeQuestion(box);
   qs.forEach(q=>{
     const d=document.createElement('div'); d.className='q';
     d.innerHTML=`<div class="qt">${esc(q.question)}</div>${q.why?`<div class="why">${esc(q.why)}</div>`:''}
@@ -432,6 +447,7 @@ function renderReport(data){
   const firstImg = ordered()[0]?.url || '';
   const locReason = lang!=='en' ? (r.local?.reasoning||'') : '', locConcl = lang!=='en' ? (r.local?.conclusion||'') : '';
   const topAuth=(r.authenticity||[])[0], topTreat=(r.treatment||[])[0], topOrigin=(r.origin||[])[0];
+  const authU = r.gate?.auth_status==='undetermined', treatU = r.gate?.treat_status==='undetermined';
   const fromText = inst.from_text && Object.keys(inst.from_text).length
     ? `<p class="meta">${esc(T('r_from_text'))}: ${Object.entries(inst.from_text).map(([k,v])=>esc(k+': '+(Array.isArray(v)?v.join('–'):v))).join(' · ')}</p>` : '';
 
@@ -482,11 +498,12 @@ function renderReport(data){
     </div>
 
     <div class="grid3">
-      <div class="box"><h3>${esc(T('r_auth'))}</h3><div class="verdict">${esc(topAuth?tn(topAuth.name):'-')}</div>${bars(r.authenticity,true)}</div>
-      <div class="box"><h3>${esc(T('r_treat'))}</h3><div class="verdict">${esc(topTreat?tn(topTreat.name):'-')}</div>${bars(r.treatment,true)}</div>
+      <div class="box"><h3>${esc(T('r_auth'))}</h3><div class="verdict"${authU?' style="color:var(--amber)"':''}>${esc(authU?T('undetermined'):(topAuth?tn(topAuth.name):'-'))}</div>${authU?`<p class="meta" style="margin:0 0 6px">${esc(T('indicative'))}</p>`:''}${bars(r.authenticity,true)}</div>
+      <div class="box"><h3>${esc(T('r_treat'))}</h3><div class="verdict"${treatU?' style="color:var(--amber)"':''}>${esc(treatU?T('undetermined'):(topTreat?tn(topTreat.name):'-'))}</div>${treatU?`<p class="meta" style="margin:0 0 6px">${esc(T('indicative'))}</p>`:''}${bars(r.treatment,true)}</div>
       <div class="box"><h3>${esc(T('r_origin'))}</h3><div class="verdict">${esc(topOrigin?topOrigin.name:'-')}</div>${bars(r.origin,false)}</div>
     </div>
 
+    ${authU?`<div class="sec warnbox"><b>${esc(T('undetermined'))}: ${esc(T('r_auth'))}</b><p style="margin:6px 0 0">${esc(T('auth_need'))}</p></div>`:''}
     ${(locConcl||r.conclusion)?`<div class="sec"><h3>${esc(T('r_conclusion'))}</h3><div class="conclusion">${esc(locConcl||r.conclusion)}</div>
       ${(r.treatment_statement||r.origin_statement)?`<p class="meta" style="margin:8px 0 0">${esc([r.treatment_statement,r.origin_statement].filter(Boolean).join(' '))}</p>`:''}</div>`:''}
     ${conflicts}
@@ -558,13 +575,14 @@ function onePageHtml(data, client){
     [E('pdf_transp'), cap(id.transparency)], [E('pdf_phen'), id.phenomenon && !/^none$/i.test(id.phenomenon) ? cap(id.phenomenon) : ''],
     [E('pdf_count'), r.consensus_count>1 ? String(r.consensus_count) : '']
   ].filter(x=>x[1]);
-  const identLine = id.natural_or_synthetic || top(r.authenticity) || 'Undetermined';
+  const authU = r.gate?.auth_status==='undetermined', treatU = r.gate?.treat_status==='undetermined';
+  const identLine = authU ? 'Not determined – microscopic examination required' : (id.natural_or_synthetic || top(r.authenticity) || 'Undetermined');
   const results = [
     [E('r_species'), esc(id.species||'-')],
     [E('r_variety'), esc(id.variety||'-')],
     ...(id.group?[[E('pdf_group'), esc(id.group)]]:[]),
-    [E('pdf_ident'), `${esc(cap(identLine))}<small>${esc(E('pdf_estimate'))}: ${est(r.authenticity)||'-'}</small>`],
-    [E('pdf_treat'), `${esc(r.treatment_statement || top(r.treatment) || 'Not determined')}<small>${esc(E('pdf_estimate'))}: ${est(r.treatment)||'-'}</small>`],
+    [E('pdf_ident'), `${esc(cap(identLine))}${authU?'':`<small>${esc(E('pdf_estimate'))}: ${est(r.authenticity)||'-'}</small>`}`],
+    [E('pdf_treat'), `${esc(treatU ? 'Not determined on the basis of the tests performed' : (r.treatment_statement || top(r.treatment) || 'Not determined'))}${treatU?'':`<small>${esc(E('pdf_estimate'))}: ${est(r.treatment)||'-'}</small>`}`],
     [E('pdf_origin'), `${esc(r.origin_statement || top(r.origin) || 'Not determined')}<small>${esc(E('pdf_estimate'))}: ${est(r.origin)||'-'}</small>`],
   ];
   const tr = rows => rows.map(([a,b])=>`<tr><td>${esc(a)}</td><td>${b}</td></tr>`).join('');

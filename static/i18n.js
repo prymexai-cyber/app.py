@@ -1,6 +1,6 @@
 /* Interface text. English, Sinhala and Tamil are built in; every other language is
    translated once by the AI panel (/api/ui-text) and cached in the browser. */
-window.I18N_VERSION = 5;
+window.I18N_VERSION = 6;
 window.LANGS = [
   ["en","English","en-US"],["si","සිංහල","si-LK"],["ta","தமிழ்","ta-LK"],["hi","हिन्दी","hi-IN"],
   ["zh","中文","zh-CN"],["ja","日本語","ja-JP"],["ko","한국어","ko-KR"],["th","ไทย","th-TH"],
@@ -14,6 +14,11 @@ window.RTL = ["ar","fa","ur"];
 
 window.I18N = {
 en: {
+  undetermined:"Not determined", indicative:"Not enough evidence. The bars below are only a rough indication.",
+  auth_need:"Natural and synthetic stones of this kind have the same colour, RI and SG, so photos cannot separate them. Look inside the stone with a 10x loupe or microscope: curved lines or round gas bubbles mean synthetic; fine silk needles, crystals or fingerprint-like feathers mean natural. Tick what you see and re-analyze.",
+  lq_q:"Look inside the stone with a 10x loupe or microscope. What do you see?", lq_note:"This is the only way to tell natural from synthetic without a lab. Tap everything you see.",
+  lq_curved:"Curved lines / curved colour bands", lq_bubbles:"Round gas bubbles", lq_silk:"Fine needles (silk)", lq_crystals:"Small crystals inside",
+  lq_fingerprints:"Fingerprint-like feathers", lq_angular:"Straight, angular colour bands", lq_clean:"Completely clean inside",
   c_title:"Report details", c_note:"The PDF and printed report are issued in English for international clients. The client name is required; phone and email are optional.",
   f_cname:"Client name", f_cphone:"Contact number (optional)", f_cemail:"Email (optional)", ph_cname:"e.g. Anna Müller",
   need_cname:"Please enter the client name before printing or downloading the report.", bad_email:"Please check the email address.",
@@ -107,6 +112,11 @@ en: {
 },
 
 si: {
+  undetermined:"තීරණය කළ නොහැක", indicative:"ප්‍රමාණවත් සාක්ෂි නැත. පහත තීරු දළ ඇස්තමේන්තුවක් පමණි.",
+  auth_need:"මෙවැනි ස්වභාවික සහ කෘත්‍රිම මැණික්වල වර්ණය, RI සහ SG එක සමානයි, ඒ නිසා ඡායාරූප වලින් ඒවා වෙන් කළ නොහැක. 10x ලූප් එකකින් හෝ අන්වීක්ෂයකින් මැණික ඇතුළත බලන්න: වක්‍ර රේඛා හෝ රවුම් වායු බුබුළු නම් කෘත්‍රිමයි; සියුම් සිල්ක් ඉඳිකටු, ස්ඵටික හෝ ඇඟිලි සලකුණු වැනි පිහාටු නම් ස්වභාවිකයි. දුටු දේ තෝරා නැවත විශ්ලේෂණය කරන්න.",
+  lq_q:"10x ලූප් එකකින් හෝ අන්වීක්ෂයකින් මැණික ඇතුළත බලන්න. ඔබට පෙනෙන්නේ මොනවාද?", lq_note:"රසායනාගාරයක් නැතිව ස්වභාවිකද කෘත්‍රිමද කියා දැනගත හැකි එකම ක්‍රමය මෙයයි. පෙනෙන සියල්ල තෝරන්න.",
+  lq_curved:"වක්‍ර රේඛා / වක්‍ර වර්ණ පටි", lq_bubbles:"රවුම් වායු බුබුළු", lq_silk:"සියුම් ඉඳිකටු (සිල්ක්)", lq_crystals:"ඇතුළේ කුඩා ස්ඵටික",
+  lq_fingerprints:"ඇඟිලි සලකුණු වැනි පිහාටු", lq_angular:"සෘජු, කෝණික වර්ණ පටි", lq_clean:"ඇතුළත සම්පූර්ණයෙන් පිරිසිදුයි",
   c_title:"වාර්තා විස්තර", c_note:"PDF සහ මුද්‍රිත වාර්තාව ජාත්‍යන්තර ගනුදෙනුකරුවන් සඳහා ඉංග්‍රීසියෙන් නිකුත් වේ. ගනුදෙනුකරුගේ නම අනිවාර්යයි; දුරකථන අංකය සහ ඊමේල් අවශ්‍ය නම් පමණි.",
   f_cname:"ගනුදෙනුකරුගේ නම", f_cphone:"දුරකථන අංකය (අවශ්‍ය නම්)", f_cemail:"ඊමේල් (අවශ්‍ය නම්)", ph_cname:"උදා: Anna Müller",
   need_cname:"වාර්තාව මුද්‍රණය කිරීමට හෝ බාගැනීමට පෙර ගනුදෙනුකරුගේ නම ඇතුළත් කරන්න.", bad_email:"කරුණාකර ඊමේල් ලිපිනය පරීක්ෂා කරන්න.",
@@ -195,6 +205,11 @@ si: {
 },
 
 ta: {
+  undetermined:"தீர்மானிக்க முடியவில்லை", indicative:"போதுமான சான்று இல்லை. கீழே உள்ள பட்டைகள் தோராயமான குறிப்பு மட்டுமே.",
+  auth_need:"இந்த வகை இயற்கை மற்றும் செயற்கை கற்களுக்கு ஒரே நிறம், RI மற்றும் SG உள்ளது, எனவே புகைப்படங்களால் அவற்றைப் பிரிக்க முடியாது. 10x லூப் அல்லது நுண்ணோக்கியால் கல்லின் உள்ளே பாருங்கள்: வளைந்த கோடுகள் அல்லது வட்ட வாயு குமிழ்கள் என்றால் செயற்கை; நுண்ணிய சில்க் ஊசிகள், படிகங்கள் அல்லது கைரேகை போன்றவை என்றால் இயற்கை. கண்டதைத் தேர்ந்தெடுத்து மீண்டும் பகுப்பாய்வு செய்யவும்.",
+  lq_q:"10x லூப் அல்லது நுண்ணோக்கியால் கல்லின் உள்ளே பாருங்கள். என்ன தெரிகிறது?", lq_note:"ஆய்வகம் இல்லாமல் இயற்கையா செயற்கையா என்று அறியும் ஒரே வழி இது. தெரியும் அனைத்தையும் தேர்ந்தெடுக்கவும்.",
+  lq_curved:"வளைந்த கோடுகள் / வளைந்த நிறப் பட்டைகள்", lq_bubbles:"வட்ட வாயு குமிழ்கள்", lq_silk:"நுண்ணிய ஊசிகள் (சில்க்)", lq_crystals:"உள்ளே சிறிய படிகங்கள்",
+  lq_fingerprints:"கைரேகை போன்ற இறகுகள்", lq_angular:"நேரான, கோண நிறப் பட்டைகள்", lq_clean:"உள்ளே முற்றிலும் சுத்தம்",
   c_title:"அறிக்கை விவரங்கள்", c_note:"PDF மற்றும் அச்சிட்ட அறிக்கை சர்வதேச வாடிக்கையாளர்களுக்காக ஆங்கிலத்தில் வழங்கப்படும். வாடிக்கையாளர் பெயர் கட்டாயம்; தொலைபேசி மற்றும் மின்னஞ்சல் விருப்பமானவை.",
   f_cname:"வாடிக்கையாளர் பெயர்", f_cphone:"தொலைபேசி எண் (விருப்பம்)", f_cemail:"மின்னஞ்சல் (விருப்பம்)", ph_cname:"எ.கா. Anna Müller",
   need_cname:"அறிக்கையை அச்சிட அல்லது பதிவிறக்கும் முன் வாடிக்கையாளர் பெயரை உள்ளிடவும்.", bad_email:"மின்னஞ்சல் முகவரியைச் சரிபார்க்கவும்.",
