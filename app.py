@@ -1812,6 +1812,14 @@ def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
+@app.after_request
+def no_stale_pages(resp):
+    """Always fetch the newest page and scripts after a deploy (they are small)."""
+    if request.path == "/" or request.path.endswith((".html", ".js", ".css")):
+        resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return resp
+
+
 @app.route("/health")
 def health():
     return jsonify({
