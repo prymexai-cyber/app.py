@@ -490,7 +490,7 @@ function renderReport(data){
       <td>${esc(g.notes)}</td></tr>`).join('');
   const panelRows=panel.map(p=>`<tr><td>${esc(p.label)}</td><td class="meta">${esc(p.model)}</td>
       <td><span class="pill ${p.ok?'ok':'bad'}">${esc(T(p.ok?'st_ok':'st_failed'))}</span></td>
-      <td>${p.ok?esc((p.species||'')+' · '+p.count):esc(p.error)}</td><td>${esc(p.seconds)} s</td></tr>`).join('');
+      <td>${p.ok?esc((p.species||'')+(p.count==null?'':' · '+p.count)):esc(p.error)}</td><td>${p.seconds==null?"-":esc(p.seconds)+" s"}</td></tr>`).join('');
 
   const keepMarks = renderedFor===data;
   $('sheet').innerHTML = `
