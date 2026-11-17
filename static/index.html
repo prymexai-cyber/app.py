@@ -3,652 +3,401 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Yasiru Gems &amp; Jewellery Gem Tracker</title>
+<title>Yasiru Gems Lab</title>
+<meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+/* apply the saved theme before the page paints */
+(function(){ try{ var t=localStorage.getItem('ygl_theme'); if(t==='light'||t==='dark') document.documentElement.setAttribute('data-theme',t); }catch(e){} })();
+</script>
 <style>
 :root{
-  --bg:#E9EEF2; --panel:#FFFFFF; --ink:#0F1B2D; --muted:#5B6877; --line:#CBD5DE;
-  --sapphire:#2347B5; --ruby:#A8143A; --emerald:#0B7A5A; --amber:#9A6200;
-  --radius:14px;
-  --head:'Bricolage Grotesque',system-ui,sans-serif;
-  --body:'Figtree',system-ui,sans-serif;
+  --bg:#EEF2F6; --panel:#FFFFFF; --panel2:#F6F8FB; --ink:#0F1B2D; --muted:#56657A; --line:#D3DCE5;
+  --accent:#2347B5; --accent-ink:#FFFFFF; --ruby:#A8143A; --emerald:#0B7A5A; --amber:#9A6200;
+  --shadow:0 1px 2px rgba(15,27,45,.06),0 8px 24px rgba(15,27,45,.06);
+  --radius:16px;
+  --head:'Bricolage Grotesque','Noto Sans Sinhala','Noto Sans Tamil',system-ui,sans-serif;
+  --body:'Figtree','Noto Sans Sinhala','Noto Sans Tamil',system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){
-  :root{--bg:#0B1220;--panel:#121C2E;--ink:#E8EEF6;--muted:#93A3B8;--line:#26354D;--sapphire:#7C9BFF;--ruby:#FF7A9C;--emerald:#4FD1A5;--amber:#F0B34A;}
+  :root:not([data-theme="light"]){--bg:#0A101C;--panel:#111A2B;--panel2:#0D1524;--ink:#E7EDF6;--muted:#97A6BB;--line:#25344B;
+    --accent:#86A3FF;--accent-ink:#0A101C;--ruby:#FF7C9C;--emerald:#4FD1A5;--amber:#F0B34A;--shadow:none}
 }
+:root[data-theme="dark"]{--bg:#0A101C;--panel:#111A2B;--panel2:#0D1524;--ink:#E7EDF6;--muted:#97A6BB;--line:#25344B;
+  --accent:#86A3FF;--accent-ink:#0A101C;--ruby:#FF7C9C;--emerald:#4FD1A5;--amber:#F0B34A;--shadow:none}
+
 *{box-sizing:border-box}
 html{scroll-padding-top:12px}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
-  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
-.wrap{max-width:1020px;margin:0 auto;padding:24px 18px 60px}
-h1,h2,h3{font-family:var(--head);margin:0;line-height:1.1}
-h1{font-size:clamp(1.9rem,6vw,3.1rem);font-weight:700;letter-spacing:-.02em}
-h2{font-size:1.35rem;font-weight:700}
-.lead{color:var(--muted);max-width:54ch;margin:10px 0 0}
-header{padding:10px 0 22px;display:flex;gap:18px;align-items:center}
-.logo{flex:none;width:64px;height:64px}
-button{font:inherit;cursor:pointer}
-button:focus-visible,label:focus-within{outline:3px solid var(--sapphire);outline-offset:2px}
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);transition:background .2s,color .2s}
+.wrap{max-width:1060px;margin:0 auto;padding:16px 16px 60px}
+h1,h2,h3{font-family:var(--head);margin:0;line-height:1.15}
+h1{font-size:clamp(1.7rem,5.5vw,2.8rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:1.3rem;font-weight:700}
+h3{font-size:1.05rem;font-weight:700}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.tile{display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;
-  background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:20px;color:var(--ink);
-  transition:border-color .15s, transform .15s}
-.tile:hover{border-color:var(--sapphire);transform:translateY(-2px)}
-.tile svg{width:34px;height:34px;stroke:var(--sapphire)}
-.tile b{font-family:var(--head);font-size:1.25rem}
-.tile span{color:var(--muted);font-size:.93rem}
-.tile.primary{background:var(--sapphire);border-color:var(--sapphire);color:#fff}
-.tile.primary span{color:rgba(255,255,255,.82)}
-.tile.primary svg{stroke:#fff}
-@media (prefers-color-scheme:dark){.tile.primary{color:#0B1220}.tile.primary span{color:rgba(11,18,32,.75)}.tile.primary svg{stroke:#0B1220}}
+/* top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:6px 0 14px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--head);font-weight:700}
+.brand svg{width:34px;height:34px}
+.controls{display:flex;gap:8px;align-items:center}
+.controls select{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;max-width:190px}
+.iconbtn{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:8px 12px}
+.iconbtn svg{width:18px;height:18px}
+.hero{padding:6px 0 18px}
+.hero .sub{color:var(--accent);font-weight:600;margin-top:6px}
+.lead{color:var(--muted);max-width:68ch;margin:8px 0 0}
+.engines{color:var(--muted);font-size:.86rem;margin-top:8px}
+.translating{display:none;color:var(--amber);font-size:.9rem;margin-top:6px}
+.translating.on{display:block}
+
+/* cards */
+.card{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:18px;margin-top:16px;box-shadow:var(--shadow)}
+.card > h2{margin-bottom:4px}
+.note{color:var(--muted);font-size:.92rem;margin:4px 0 0}
+
+/* media */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;cursor:pointer;
+  background:var(--panel2);border:1.5px solid var(--line);border-radius:14px;padding:14px;color:var(--ink);transition:border-color .15s,transform .15s}
+.tile:hover{border-color:var(--accent);transform:translateY(-1px)}
+.tile svg{width:28px;height:28px;stroke:var(--accent)}
+.tile b{font-family:var(--head);font-size:1.1rem}
+.tile span{color:var(--muted);font-size:.86rem}
+.tile.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tile.primary span{color:inherit;opacity:.8}
+.tile.primary svg{stroke:var(--accent-ink)}
 input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.engines{margin-top:12px;color:var(--muted);font-size:.9rem}
+.drop{margin-top:12px;border:2px dashed var(--line);border-radius:14px;padding:12px;text-align:center;color:var(--muted);font-size:.9rem}
+.drop.over{border-color:var(--accent);color:var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-top:12px}
+.thumb{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;background:#000;border:1.5px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .x{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:15px;line-height:26px;padding:0}
+.thumb .badge{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.65);color:#fff;font-size:.7rem;border-radius:6px;padding:1px 6px}
+.thumb .num{position:absolute;left:4px;top:4px;background:var(--accent);color:var(--accent-ink);font-size:.72rem;font-weight:700;border-radius:6px;padding:0 6px}
+.mediacount{margin-top:8px;color:var(--muted);font-size:.9rem}
 
-.stage{margin-top:22px;display:none;background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:14px}
-.stage.on{display:block}
-.shot{position:relative;border-radius:10px;overflow:hidden;background:#000;display:flex;justify-content:center}
-.shot img{display:block;max-width:100%;max-height:60vh;object-fit:contain}
-.scan{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--sapphire),transparent);
-  box-shadow:0 0 18px 4px var(--sapphire);top:0;display:none;animation:scan 1.6s ease-in-out infinite alternate}
-.shot.busy .scan{display:block}
-@keyframes scan{to{top:calc(100% - 3px)}}
-@media (prefers-reduced-motion:reduce){.scan{animation:none;top:50%}}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-.btn{border:0;border-radius:10px;padding:12px 20px;font-weight:600;background:var(--sapphire);color:#fff}
-@media (prefers-color-scheme:dark){.btn{color:#0B1220}}
+/* form */
+details.grp{border:1.5px solid var(--line);border-radius:14px;padding:0 14px;margin-top:10px;background:var(--panel2)}
+details.grp summary{cursor:pointer;padding:12px 0;font-weight:600;list-style:none;display:flex;gap:8px;align-items:center}
+details.grp summary::-webkit-details-marker{display:none}
+details.grp summary::before{content:'+';color:var(--accent);font-weight:700;width:14px}
+details.grp[open] summary::before{content:'\2212'}
+details.grp .filled{margin-left:auto;font-size:.78rem;color:var(--emerald);font-weight:600}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding-bottom:14px}
+.fld label,.fld .lab{display:block;font-size:.85rem;color:var(--muted);margin-bottom:3px}
+.fld input,.fld select,textarea{width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px}
+textarea{min-height:92px;resize:vertical}
+.fld.wide{grid-column:1/-1}
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;padding-bottom:12px}
+.choice label{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel);cursor:pointer;font-size:.92rem}
+.choice label:has(input:checked){border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.choice input{margin-top:4px;accent-color:var(--accent)}
+.subh{font-size:.85rem;color:var(--muted);margin:2px 0 6px}
+.speakrow{display:flex;gap:8px;align-items:center;margin:8px 0 14px;flex-wrap:wrap}
+.rec{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ruby);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+.btn{border:0;border-radius:12px;padding:12px 20px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.btn.big{padding:15px 26px;font-size:1.05rem}
 .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
 .btn.small{padding:7px 12px;font-size:.88rem}
 .btn:disabled{opacity:.55;cursor:wait}
-.busytext{margin-top:10px;color:var(--muted);font-size:.93rem;display:none}
+.busytext{color:var(--muted);font-size:.92rem;display:none}
 .busytext.on{display:block}
-
-.err{margin-top:16px;padding:12px 14px;border-radius:10px;border:1.5px solid var(--ruby);color:var(--ruby);display:none}
+.progress{height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:10px;display:none}
+.progress.on{display:block}
+.progress i{display:block;height:100%;width:30%;background:var(--accent);animation:slide 1.4s ease-in-out infinite}
+@keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+@media (prefers-reduced-motion:reduce){.progress i,.rec{animation:none}}
+.err{margin-top:14px;padding:12px 14px;border-radius:12px;border:1.5px solid var(--ruby);color:var(--ruby);display:none;background:var(--panel)}
 .err.on{display:block}
 
+/* questions */
+#qcard{display:none;border-color:var(--accent)}
+#qcard.on{display:block}
+.q{border-top:1px solid var(--line);padding:12px 0}
+.q:first-of-type{border-top:0}
+.q .qt{font-weight:600}
+.q .why{color:var(--muted);font-size:.86rem}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.opt{border:1.5px solid var(--line);background:var(--panel2);border-radius:999px;padding:6px 14px;font-size:.92rem}
+.opt[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.q input[type=text]{margin-top:8px;width:100%;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px}
+
 /* report */
-#report{margin-top:30px;display:none}
+#report{display:none}
 #report.on{display:block}
-.sheet{background:var(--panel);border:1.5px solid var(--line);border-radius:var(--radius);padding:22px}
-.sheet-head{border-bottom:1.5px solid var(--line);padding-bottom:14px;margin-bottom:18px}
-.meta{color:var(--muted);font-size:.9rem}
-.sub{margin:26px 0 10px;font-size:1.1rem}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media (max-width:760px){.grid2{grid-template-columns:1fr}}
-
-.countbox{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;border:1.5px solid var(--line);border-radius:12px;padding:16px}
-.bignum{font-family:var(--head);font-size:3.6rem;font-weight:700;line-height:1}
-.bignum small{display:block;font-family:var(--body);font-size:.85rem;font-weight:500;color:var(--muted);margin-top:4px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:999px;padding:5px 12px;font-size:.92rem}
-.chip i{width:12px;height:12px;border-radius:50%;background:var(--sapphire);display:inline-block}
-.chip b{font-weight:600}
-.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.82rem;font-weight:600;border:1.5px solid currentColor}
-.tag.ok{color:var(--emerald)} .tag.warn{color:var(--amber)} .tag.bad{color:var(--ruby)} .tag.neutral{color:var(--muted)}
-
-.markbox{margin-top:14px;border:1.5px solid var(--line);border-radius:12px;padding:14px}
-.markstage{position:relative;display:inline-block;max-width:100%;line-height:0;cursor:crosshair;touch-action:manipulation;border-radius:8px;overflow:hidden}
-.markstage img{max-width:100%;max-height:68vh;display:block}
+.rhead{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1.5px solid var(--line);padding-bottom:12px;margin-bottom:14px}
+.meta{color:var(--muted);font-size:.88rem}
+.idbox{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.ring{--p:0;width:118px;height:118px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--line) 0)}
+.ring div{width:92px;height:92px;border-radius:50%;background:var(--panel);display:grid;place-items:center;text-align:center;font-family:var(--head);font-weight:700;font-size:1.5rem;line-height:1}
+.ring small{display:block;font-family:var(--body);font-size:.64rem;font-weight:500;color:var(--muted);margin-top:2px}
+.idname{font-family:var(--head);font-size:clamp(1.5rem,4vw,2.1rem);font-weight:700;line-height:1.1}
+.idsp{color:var(--muted)}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:600;border:1.5px solid currentColor}
+.pill.ok{color:var(--emerald)} .pill.warn{color:var(--amber)} .pill.bad{color:var(--ruby)} .pill.neutral{color:var(--muted)} .pill.acc{color:var(--accent)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.box{border:1.5px solid var(--line);border-radius:14px;padding:14px;background:var(--panel2)}
+.box h3{margin-bottom:8px}
+.verdict{font-family:var(--head);font-size:1.25rem;font-weight:700;margin-bottom:6px}
+.bars .bar{display:grid;grid-template-columns:minmax(90px,1.2fr) 2.4fr 46px;gap:8px;align-items:center;margin:6px 0;font-size:.88rem}
+.track{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.fill{height:100%;border-radius:999px;background:var(--accent)}
+.fill.good{background:var(--emerald)} .fill.mid{background:var(--amber)} .fill.bad{background:var(--ruby)}
+.pct{text-align:right;font-weight:600}
+.sec{margin-top:22px}
+.sec > h3{margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;padding:3px 11px;font-size:.86rem}
+.chip.miss{border-style:dashed;color:var(--muted)}
+.chip i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.warnbox{border:1.5px solid var(--amber);border-radius:14px;padding:12px 14px;background:color-mix(in srgb,var(--amber) 9%,transparent)}
+.warnbox ul,.box ul{margin:6px 0 0;padding-left:20px}
+.tablewrap{overflow-x:auto;border:1.5px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:start;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+table.wide{min-width:860px}
+.match{display:grid;grid-template-columns:minmax(130px,1.4fr) 3fr 46px;gap:8px;align-items:center;margin:6px 0;font-size:.9rem}
+.countbox{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.bignum{font-family:var(--head);font-size:2.8rem;font-weight:700;line-height:1}
+.markstage{position:relative;display:inline-block;max-width:100%;line-height:0;cursor:crosshair;touch-action:manipulation;border-radius:10px;overflow:hidden;margin-top:10px}
+.markstage img{max-width:100%;max-height:min(60vh,460px);display:block}
 .mk{position:absolute;transform:translate(-50%,-50%);min-width:22px;height:22px;padding:0 4px;border-radius:999px;border:2px solid #fff;
   background:var(--emerald);color:#fff;font:600 11px/18px var(--body);text-align:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.55);cursor:pointer}
-.mk:hover{background:var(--ruby)}
-.verified{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-.verified strong{font-family:var(--head);font-size:1.6rem}
+.conclusion{font-size:1.02rem;border-left:4px solid var(--accent);padding:8px 14px;background:var(--panel2);border-radius:0 12px 12px 0}
+.disc{margin-top:18px;padding:12px 14px;border-radius:12px;border-left:4px solid var(--amber);background:color-mix(in srgb,var(--amber) 9%,transparent);font-size:.88rem}
+.credit{margin-top:36px;padding-top:16px;border-top:1.5px solid var(--line);color:var(--muted);font-size:.9rem;text-align:center}
+.credit b{display:block;font-family:var(--head);color:var(--ink)}
 
-.bars .bar{display:grid;grid-template-columns:minmax(110px,1.1fr) 3fr 52px;gap:10px;align-items:center;margin:7px 0;font-size:.93rem}
-.track{height:12px;border-radius:999px;background:color-mix(in srgb,var(--line) 55%,transparent);overflow:hidden}
-.fill{height:100%;border-radius:999px;background:var(--sapphire)}
-.fill.t-unheated{background:var(--emerald)} .fill.t-heated{background:var(--amber)} .fill.t-other{background:var(--ruby)}
-.fill.a-natural{background:var(--emerald)} .fill.a-synth{background:var(--amber)} .fill.a-imit{background:var(--ruby)}
-.pct{text-align:right;font-weight:600}
-.verdict{margin:10px 0 0;font-size:.93rem;color:var(--muted)}
-
-.tablewrap{overflow-x:auto;border:1.5px solid var(--line);border-radius:12px}
-table{border-collapse:collapse;width:100%;min-width:900px;font-size:.92rem}
-th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-weight:600;color:var(--muted);background:color-mix(in srgb,var(--line) 30%,transparent)}
-tr:last-child td{border-bottom:0}
-.note{margin-top:20px;padding:14px;border-radius:10px;border-left:4px solid var(--amber);background:color-mix(in srgb,var(--amber) 10%,transparent);font-size:.92rem}
-.credit{margin-top:40px;padding-top:18px;border-top:1.5px solid var(--line);color:var(--muted);font-size:.92rem;text-align:center}
-.credit div:last-child{font-family:var(--head);font-weight:700;color:var(--ink);margin-top:2px}
-
-/* manual readings */
-details.manual{margin-top:14px;border:1.5px solid var(--line);border-radius:12px;padding:0 14px}
-details.manual summary{cursor:pointer;padding:12px 0;font-weight:600;list-style:none}
-details.manual summary::-webkit-details-marker{display:none}
-details.manual summary::before{content:'+ ';color:var(--sapphire);font-weight:700}
-details.manual[open] summary::before{content:'\2212 '}
-.mgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding-bottom:12px}
-.fld label,.fld .lab{display:block;font-size:.85rem;color:var(--muted);margin-bottom:3px}
-.fld input,.fld select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:9px 10px}
-.fld input:focus,.fld select:focus{outline:3px solid var(--sapphire);outline-offset:1px}
-.obsgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 14px;padding-bottom:14px}
-.obsgrid label{display:flex;gap:8px;align-items:flex-start;font-size:.92rem;cursor:pointer}
-.obsgrid input{margin-top:4px;accent-color:var(--sapphire)}
-.mnote{font-size:.88rem;color:var(--muted);padding-bottom:12px;margin:0}
-.mh{font-family:var(--head);font-size:1rem;margin:4px 0 8px}
-.card{border:1.5px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
-.card ul{margin:6px 0 0;padding-left:20px}
-.match{display:grid;grid-template-columns:minmax(140px,1.4fr) 3fr 52px;gap:10px;align-items:center;margin:8px 0;font-size:.93rem}
-/* PDF export: light colours, A4 width */
-body.pdfmode{--bg:#fff;--panel:#fff;--ink:#0F1B2D;--muted:#4A5563;--line:#CBD5DE;--sapphire:#2347B5;--ruby:#A8143A;--emerald:#0B7A5A;--amber:#9A6200}
-#pdfbox{width:760px;margin:0;border:0;border-radius:0;padding:8px;background:#fff;color:#0F1B2D}
-#pdfbox .no-print{display:none!important}
-#pdfbox table{min-width:0;font-size:.74rem}
-#pdfbox .tablewrap{overflow:visible}
-#pdfbox .markstage{cursor:default}
-#pdfbox .markstage img{max-height:420px}
-#pdfbox .grid2{grid-template-columns:1fr 1fr}
-#pdfbox .track{background:#E3E9EF}
-#pdfbox th{background:#EEF2F6}
-#pdfbox .note{background:#FBF3E4}
-/* camera modal */
-.modal{position:fixed;inset:0;background:rgba(4,8,16,.92);display:none;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+/* camera */
+.modal{position:fixed;inset:0;background:rgba(4,8,16,.94);display:none;z-index:50;flex-direction:column;align-items:center;justify-content:center;padding:16px}
 .modal.on{display:flex}
-.modal video{width:100%;max-width:720px;max-height:70vh;border-radius:12px;background:#000;object-fit:cover}
+.modal video{width:100%;max-width:720px;max-height:68vh;border-radius:12px;background:#000;object-fit:cover}
 .modal .row{justify-content:center}
-.shutter{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:var(--sapphire);padding:0}
+.modal .btn.ghost{color:#fff;border-color:#fff}
+.shutter{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:#2347B5;padding:0}
+.camcount{color:#fff;margin-top:8px;font-size:.9rem}
 
-@media (max-width:560px){.actions{grid-template-columns:1fr}.logo{width:48px;height:48px}.countbox{grid-template-columns:1fr}}
+/* one-page PDF sheet: always light, A4 at 96 dpi */
+#pdfhost{position:fixed;left:-10000px;top:0;pointer-events:none}
+.a4{width:794px;height:1123px;background:#fff;color:#0F1B2D;font-family:var(--body);padding:34px 38px 26px;position:relative;overflow:hidden;font-size:var(--fs,12.5px);line-height:1.38;display:flex;flex-direction:column}
+.a4 .ph{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2347B5;padding-bottom:10px}
+.a4 .pbrand{display:flex;gap:10px;align-items:center}
+.a4 .pbrand svg{width:46px;height:46px}
+.a4 .pname{font-family:var(--head);font-size:1.9em;font-weight:700;color:#2347B5;letter-spacing:.02em;line-height:1}
+.a4 .psub{font-size:1.05em;font-weight:600;color:#56657A;margin-top:3px}
+.a4 .pmeta{text-align:right;font-size:.92em;color:#56657A}
+.a4 .pmeta b{color:#0F1B2D}
+.a4 .ptitle{margin:12px 0 4px;font-family:var(--head);font-size:2.05em;font-weight:700;line-height:1.1}
+.a4 .ptitle small{display:block;font-family:var(--body);font-size:.48em;color:#56657A;font-weight:500;margin-top:3px}
+.a4 .pgrid{display:grid;grid-template-columns:250px 1fr;gap:18px;margin-top:10px}
+.a4 .pphotos{display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:start}
+.a4 .pphotos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #D3DCE5;display:block}
+.a4 .pphotos img:first-child{grid-column:1/-1;aspect-ratio:4/3}
+.a4 table{width:100%;border-collapse:collapse;font-size:1em}
+.a4 td{padding:4px 6px;border-bottom:1px solid #E3E9EF;vertical-align:top}
+.a4 td:first-child{color:#56657A;width:42%}
+.a4 td:last-child{font-weight:600}
+.a4 h4{font-family:var(--head);font-size:1.12em;margin:12px 0 5px;color:#2347B5;text-transform:uppercase;letter-spacing:.04em}
+.a4 .pconf{display:flex;gap:10px;margin-top:8px}
+.a4 .pconf div{flex:1;border:1px solid #D3DCE5;border-radius:6px;padding:6px 8px}
+.a4 .pconf b{display:block;font-family:var(--head);font-size:1.5em;color:#2347B5;line-height:1.1}
+.a4 .pconcl{border-left:4px solid #2347B5;background:#F3F6FB;padding:8px 10px;border-radius:0 6px 6px 0}
+.a4 ul{margin:0;padding-left:18px}
+.a4 li{margin:1px 0}
+.a4 .pcols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.a4 .pfoot{margin-top:auto;border-top:1px solid #D3DCE5;padding-top:7px;font-size:.82em;color:#56657A;display:flex;justify-content:space-between;gap:14px}
+.a4 .pfoot p{margin:0;max-width:78%}
+
+@media (max-width:760px){.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+@media (max-width:560px){.tiles{grid-template-columns:1fr}.idbox{grid-template-columns:1fr;justify-items:start}.tile{flex-direction:row;align-items:center}.tile span{display:none}}
 @media print{
   body{background:#fff;color:#000}
-  .no-print,header,.actions,.stage,.err,.engines{display:none!important}
-  .wrap{padding:0}.sheet{border:0;padding:0}
-  :root{--panel:#fff;--ink:#000;--muted:#444;--line:#bbb}
-  .markstage{cursor:default}
+  .no-print,.topbar,.hero,#mediaCard,#testCard,#qcard,.err{display:none!important}
+  .card{border:0;box-shadow:none;padding:0}
+  :root{--panel:#fff;--panel2:#fff;--ink:#000;--muted:#444;--line:#bbb;--accent:#2347B5}
 }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="no-print">
-    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
-      <polygon points="32,4 56,22 32,60 8,22" fill="none" stroke="var(--sapphire)" stroke-width="3" stroke-linejoin="round"/>
-      <polyline points="8,22 56,22" fill="none" stroke="var(--sapphire)" stroke-width="3"/>
-      <polyline points="22,22 32,4 42,22 32,60 22,22" fill="none" stroke="var(--sapphire)" stroke-width="2" stroke-linejoin="round"/>
-    </svg>
-    <div>
-      <h1>Yasiru Gems &amp; Jewellery<br>Gem Tracker</h1>
-      <p class="lead">Take a photo or upload one from your gallery. A panel of AI models checks the gem count, colour, type, origin probability, heat treatment and authenticity. Add your own tester readings and weight for a more accurate result.</p>
+  <div class="topbar no-print">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><polygon points="32,4 56,22 32,60 8,22" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linejoin="round"/><polyline points="8,22 56,22" fill="none" stroke="var(--accent)" stroke-width="3"/><polyline points="22,22 32,4 42,22 32,60 22,22" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/></svg>
+      <span data-i18n="app_title">Yasiru Gems Lab</span>
     </div>
+    <div class="controls">
+      <label class="sr" for="langSel" style="position:absolute;left:-9999px" data-i18n="lang_label">Language</label>
+      <select id="langSel" aria-label="Language"></select>
+      <button class="iconbtn" id="themeBtn" type="button" data-i18n-title="theme_toggle" title="Switch light / dark theme">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></svg>
+        <span id="themeLabel"></span>
+      </button>
+    </div>
+  </div>
+
+  <header class="hero">
+    <h1 data-i18n="app_title">Yasiru Gems Lab</h1>
+    <div class="sub" data-i18n="app_sub">AI gem testing system</div>
+    <p class="lead" data-i18n="lead"></p>
+    <div class="engines" id="engines"></div>
+    <div class="translating" id="translating" data-i18n="translating"></div>
   </header>
 
-  <section class="actions no-print" aria-label="Choose photo source">
-    <button class="tile primary" id="openCam" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.8"/></svg>
-      <b>Open camera</b>
-      <span>Take a photo of your gems right now</span>
-    </button>
-    <label class="tile" for="fileIn" style="cursor:pointer">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg>
-      <b>Upload from gallery</b>
-      <span>Choose a photo from your phone or computer</span>
-    </label>
-    <input type="file" id="fileIn" accept="image/*">
-  </section>
-  <div class="engines no-print" id="engines"></div>
-
-  <section class="stage no-print" id="stage">
-    <div class="shot" id="shot"><img id="preview" alt="Selected gemstone photo"><div class="scan"></div></div>
-    <details class="manual" id="manual">
-      <summary>Add your own tester readings and weight (optional, improves accuracy)</summary>
-      <p class="mnote">Fill these in when the photo shows ONE stone that you tested. Leave anything you did not measure empty. Works for every gem: diamond, sapphire, ruby, emerald, spinel and all others.</p>
-      <div class="mgrid">
-        <div class="fld"><label for="m_claim">What do you think it is?</label><input id="m_claim" type="text" maxlength="80" placeholder="e.g. Blue sapphire"></div>
-        <div class="fld"><label for="m_thermal">Diamond tester reading (bars)</label>
-          <select id="m_thermal"><option value="">Not tested</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
-        <div class="fld"><label for="m_moiss">Moissanite tester</label>
-          <select id="m_moiss"><option value="">Not tested</option><option value="yes">Moissanite detected</option><option value="no">No moissanite detected</option></select></div>
-        <div class="fld"><label for="m_ri">Refractive index (RI)</label><input id="m_ri" type="text" inputmode="decimal" placeholder="e.g. 1.762-1.770"></div>
-        <div class="fld"><label for="m_sg">Specific gravity (SG)</label><input id="m_sg" type="text" inputmode="decimal" placeholder="e.g. 4.00"></div>
-        <div class="fld"><label for="m_uvl">UV long wave</label><select id="m_uvl"><option value="">Not tested</option></select></div>
-        <div class="fld"><label for="m_uvs">UV short wave</label><select id="m_uvs"><option value="">Not tested</option></select></div>
-        <div class="fld"><label for="m_weight">Weight (carats)</label><input id="m_weight" type="number" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 2.35"></div>
-        <div class="fld"><label for="m_shape">Shape</label>
-          <select id="m_shape"><option>round</option><option>oval</option><option>cushion</option><option>emerald cut / rectangular</option><option>princess / square</option><option>pear</option><option>marquise</option><option>heart</option><option selected>other / unknown</option></select></div>
-        <div class="fld"><label for="m_l">Length (mm)</label><input id="m_l" type="number" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="fld"><label for="m_w">Width (mm)</label><input id="m_w" type="number" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="fld"><label for="m_d">Depth (mm)</label><input id="m_d" type="number" step="0.01" min="0" inputmode="decimal"></div>
-      </div>
-      <div class="mh">What do you see under the loupe or microscope?</div>
-      <div class="obsgrid" id="obsgrid"></div>
-    </details>
-    <div class="row">
-      <button class="btn" id="analyzeBtn" type="button">Analyze gems</button>
-      <button class="btn ghost" id="clearBtn" type="button">Choose another photo</button>
+  <!-- 1. media -->
+  <section class="card no-print" id="mediaCard">
+    <h2 data-i18n="s1_title"></h2>
+    <p class="note" data-i18n="s1_note"></p>
+    <div class="tiles">
+      <button class="tile primary" id="openCam" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.8"/></svg>
+        <b data-i18n="btn_camera"></b><span data-i18n="btn_camera_sub"></span>
+      </button>
+      <label class="tile" for="photoIn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg>
+        <b data-i18n="btn_photos"></b><span data-i18n="btn_photos_sub"></span>
+      </label>
+      <label class="tile" for="videoIn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-3v10l-6-3z"/></svg>
+        <b data-i18n="btn_video"></b><span data-i18n="btn_video_sub"></span>
+      </label>
     </div>
-    <div class="busytext" id="busytext">Several AI models are inspecting your photo at the same time. This usually takes 15 to 50 seconds.</div>
+    <input type="file" id="photoIn" accept="image/*" multiple>
+    <input type="file" id="videoIn" accept="video/*" multiple>
+    <div class="drop" id="drop" data-i18n="drop_hint"></div>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="mediacount" id="mediacount"></div>
   </section>
 
-  <div class="err" id="err" role="alert"></div>
+  <!-- 2. test data -->
+  <section class="card no-print" id="testCard">
+    <h2 data-i18n="s2_title"></h2>
+    <p class="note" data-i18n="s2_note"></p>
 
+    <details class="grp" open>
+      <summary><span data-i18n="g_free"></span></summary>
+      <p class="note" style="margin-top:0" data-i18n="free_note"></p>
+      <textarea id="m_free" maxlength="1500" data-i18n-ph="ph_free" style="margin-top:8px"></textarea>
+      <div class="speakrow">
+        <button class="btn ghost small" id="speakBtn" type="button"><span id="recDot"></span> <span id="speakLabel" data-i18n="btn_speak"></span></button>
+        <span class="meta" id="speakMsg"></span>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><span data-i18n="g_basic"></span><span class="filled" data-for="basic"></span></summary>
+      <div class="mgrid" data-group="basic">
+        <div class="fld wide"><label for="m_claim" data-i18n="f_claim"></label><input id="m_claim" type="text" maxlength="80" data-i18n-ph="ph_claim"></div>
+        <div class="fld"><label for="m_weight" data-i18n="f_weight"></label><input id="m_weight" type="number" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="fld"><label for="m_shape" data-i18n="f_shape"></label><select id="m_shape"></select></div>
+        <div class="fld"><label for="m_l" data-i18n="f_l"></label><input id="m_l" type="number" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="fld"><label for="m_w" data-i18n="f_w"></label><input id="m_w" type="number" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="fld"><label for="m_d" data-i18n="f_d"></label><input id="m_d" type="number" step="0.01" min="0" inputmode="decimal"></div>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><span data-i18n="g_ri"></span><span class="filled" data-for="ri"></span></summary>
+      <div class="mgrid" data-group="ri">
+        <div class="fld"><label for="m_ri" data-i18n="f_ri"></label><input id="m_ri" type="text" inputmode="decimal" data-i18n-ph="ph_ri"></div>
+        <div class="fld"><label for="m_biref" data-i18n="f_biref"></label><input id="m_biref" type="number" step="0.001" min="0" inputmode="decimal" data-i18n-ph="ph_biref"></div>
+        <div class="fld"><label for="m_sg" data-i18n="f_sg"></label><input id="m_sg" type="text" inputmode="decimal" data-i18n-ph="ph_sg"></div>
+        <div class="fld"><label for="m_thermal" data-i18n="f_thermal"></label><select id="m_thermal"></select></div>
+        <div class="fld"><label for="m_moiss" data-i18n="f_moiss"></label><select id="m_moiss"></select></div>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><span data-i18n="g_pol"></span><span class="filled" data-for="pol"></span></summary>
+      <div data-group="pol">
+        <div class="subh" data-i18n="f_pol"></div>
+        <div class="choice" id="polChoice"></div>
+        <div class="mgrid">
+          <div class="fld"><label for="m_fig" data-i18n="f_fig"></label><select id="m_fig"></select></div>
+          <div class="fld"><label for="m_pleo" data-i18n="f_pleo"></label><select id="m_pleo"></select></div>
+          <div class="fld"><label for="m_chelsea" data-i18n="f_chelsea"></label><select id="m_chelsea"></select></div>
+          <div class="fld"><label for="m_uvl" data-i18n="f_uvl"></label><select id="m_uvl"></select></div>
+          <div class="fld"><label for="m_uvs" data-i18n="f_uvs"></label><select id="m_uvs"></select></div>
+        </div>
+        <div class="subh" data-i18n="f_spec"></div>
+        <div class="choice" id="specChoice"></div>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><span data-i18n="g_obs"></span><span class="filled" data-for="obs"></span></summary>
+      <div class="choice" id="obsChoice" data-group="obs"></div>
+    </details>
+
+    <details class="grp">
+      <summary><span data-i18n="g_lab"></span><span class="filled" data-for="lab"></span></summary>
+      <p class="note" style="margin-top:0" data-i18n="lab_note"></p>
+      <textarea id="m_lab" maxlength="2500" data-i18n-ph="ph_lab" style="margin:8px 0 14px" data-group="lab"></textarea>
+    </details>
+
+    <div class="row">
+      <button class="btn big" id="analyzeBtn" type="button" data-i18n="btn_analyze"></button>
+      <span class="busytext" id="busytext" data-i18n="busy"></span>
+    </div>
+    <div class="progress" id="progress"><i></i></div>
+  </section>
+
+  <div class="err no-print" id="err" role="alert"></div>
+
+  <!-- follow-up questions -->
+  <section class="card no-print" id="qcard" aria-live="polite">
+    <h2 data-i18n="q_title"></h2>
+    <p class="note" data-i18n="q_note"></p>
+    <div id="qlist"></div>
+    <div class="row">
+      <button class="btn" id="reBtn" type="button" data-i18n="btn_reanalyze"></button>
+      <span class="meta" id="qcount"></span>
+    </div>
+  </section>
+
+  <!-- report -->
   <section id="report" aria-live="polite">
-    <div class="sheet" id="sheet"></div>
+    <div class="card" id="sheet"></div>
     <div class="row no-print">
-      <button class="btn" id="pdfBtn" type="button">Download PDF</button>
-      <button class="btn ghost" id="printBtn" type="button">Print</button>
-      <button class="btn ghost" id="jsonBtn" type="button">Download JSON</button>
+      <button class="btn" id="pdfBtn" type="button" data-i18n="btn_pdf"></button>
+      <button class="btn ghost" id="printBtn" type="button" data-i18n="btn_print"></button>
+      <button class="btn ghost" id="jsonBtn" type="button" data-i18n="btn_json"></button>
+      <button class="btn ghost" id="newBtn" type="button" data-i18n="btn_new"></button>
     </div>
   </section>
 
   <footer class="credit">
-    <div>Developer: Yasiru Gunasinghe</div>
-    <div>Pryme x AI</div>
+    <b>Yasiru Gems &amp; Jewellery · Pryme x AI</b>
+    <span data-i18n="dev">Developer: Yasiru Gunasinghe</span>
   </footer>
 </div>
 
 <div class="modal" id="camModal" role="dialog" aria-modal="true" aria-label="Camera">
   <video id="video" autoplay playsinline muted></video>
+  <div class="camcount" id="camCount"></div>
   <div class="row">
-    <button class="btn ghost" id="camClose" type="button" style="color:#fff;border-color:#fff">Close</button>
-    <button class="shutter" id="shutter" type="button" aria-label="Take photo"></button>
-    <button class="btn ghost" id="camFlip" type="button" style="color:#fff;border-color:#fff">Flip camera</button>
+    <button class="btn ghost" id="camFlip" type="button" data-i18n="cam_flip"></button>
+    <button class="shutter" id="shutter" type="button" data-i18n-aria="cam_shot" aria-label="Take photo"></button>
+    <button class="btn ghost" id="camClose" type="button" data-i18n="cam_done"></button>
   </div>
 </div>
 
-<script>
-(function(){
-  const $ = id => document.getElementById(id);
-  const stage=$('stage'), preview=$('preview'), shot=$('shot'), err=$('err');
-  const report=$('report'), sheet=$('sheet');
-  let currentBlob=null, stream=null, facing='environment', lastData=null, lastImgUrl=null, markers=[];
+<div id="pdfhost" aria-hidden="true"></div>
 
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const showError = m => { err.textContent=m; err.classList.add('on'); };
-  const clearError = () => err.classList.remove('on');
-
-  /* which AI engines are configured */
-  fetch('/health').then(r=>r.json()).then(h=>{
-    const on=Object.values(h.providers||{}).filter(p=>p.keys>0);
-    $('engines').textContent = on.length
-      ? 'AI panel: ' + on.map(p=>p.label+(p.keys>1?' ('+p.keys+' keys)':'')).join(' · ')
-      : 'No AI keys are configured on the server yet.';
-  }).catch(()=>{});
-
-  function setImage(blob){
-    currentBlob=blob;
-    if(lastImgUrl) URL.revokeObjectURL(lastImgUrl);
-    lastImgUrl=URL.createObjectURL(blob);
-    preview.src=lastImgUrl;
-    stage.classList.add('on');
-    report.classList.remove('on');
-    clearError();
-    stage.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
-  $('fileIn').addEventListener('change', e => { const f=e.target.files[0]; if(f) setImage(f); });
-  $('clearBtn').addEventListener('click', () => {
-    currentBlob=null; stage.classList.remove('on'); report.classList.remove('on'); $('fileIn').value=''; clearError();
-  });
-
-  /* ---------- camera ---------- */
-  async function startCam(){
-    stopCam();
-    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080}},audio:false});
-    $('video').srcObject = stream;
-  }
-  function stopCam(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
-  $('openCam').addEventListener('click', async () => {
-    clearError();
-    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-      showError('This browser cannot access the camera (HTTPS is required). Please upload from your gallery instead.'); return;
-    }
-    try{ await startCam(); $('camModal').classList.add('on'); }
-    catch(e){ showError('Could not open the camera. Please allow camera permission in your browser.'); }
-  });
-  $('camClose').addEventListener('click', () => { stopCam(); $('camModal').classList.remove('on'); });
-  $('camFlip').addEventListener('click', async () => {
-    facing = facing==='environment' ? 'user' : 'environment';
-    try{ await startCam(); }catch(e){ showError('Could not switch the camera.'); }
-  });
-  $('shutter').addEventListener('click', () => {
-    const v=$('video'); if(!v.videoWidth) return;
-    const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
-    c.getContext('2d').drawImage(v,0,0);
-    c.toBlob(b => { stopCam(); $('camModal').classList.remove('on'); if(b) setImage(b); }, 'image/jpeg', .92);
-  });
-  document.addEventListener('keydown', e => { if(e.key==='Escape' && $('camModal').classList.contains('on')) $('camClose').click(); });
-
-  /* ---------- manual readings form ---------- */
-  const UV=['none','weak','red','orange','yellow','green','blue','white / chalky','other'];
-  ['m_uvl','m_uvs'].forEach(id=>{ const sel=$(id); UV.forEach(u=>{ const o=document.createElement('option'); o.value=u; o.textContent=u; sel.appendChild(o); }); });
-  const OBS=[
-    ['silk_intact','Fine rutile silk (needles) intact'],['silk_broken','Silk broken, dotted or dissolved'],
-    ['discoid','Disc-like stress fractures around inclusions'],['pits','Surface pits, etching or melted facet edges'],
-    ['fingerprints','Natural healed fingerprint inclusions'],['mineral_crystals','Crystals of other minerals inside'],
-    ['zoning_angular','Straight, angular colour zoning'],['curved_striae','Curved striae / curved colour bands'],
-    ['bubbles','Round gas bubbles'],['swirl','Swirl marks or flow lines'],
-    ['flux','Flux / feather-like or veil-like inclusions'],['chips','Shell-like chips on the edges'],
-    ['flash_effect','Blue or orange flash in fractures'],['edge_color','Colour concentrated along facet edges'],
-    ['very_clean','Very clean, almost no inclusions'],['uniform_color','Very even, vivid colour with no zoning']
-  ];
-  OBS.forEach(([k,l])=>{
-    const lab=document.createElement('label');
-    lab.innerHTML=`<input type="checkbox" value="${k}"><span>${esc(l)}</span>`;
-    $('obsgrid').appendChild(lab);
-  });
-  function collectManual(){
-    const v=id=>$(id).value.trim();
-    const m={claim:v('m_claim'),thermal:v('m_thermal'),moissanite:v('m_moiss'),ri:v('m_ri'),sg:v('m_sg'),
-      uv_long:v('m_uvl'),uv_short:v('m_uvs'),weight_ct:v('m_weight'),shape:v('m_shape'),
-      length_mm:v('m_l'),width_mm:v('m_w'),depth_mm:v('m_d'),
-      observations:[...document.querySelectorAll('#obsgrid input:checked')].map(i=>i.value)};
-    return m;
-  }
-
-  /* ---------- analyze ---------- */
-  $('analyzeBtn').addEventListener('click', async () => {
-    if(!currentBlob) return;
-    clearError();
-    const btn=$('analyzeBtn'); btn.disabled=true; btn.textContent='Analyzing...'; shot.classList.add('busy'); $('busytext').classList.add('on');
-    const fd=new FormData(); fd.append('image', currentBlob, 'gems.jpg'); fd.append('manual', JSON.stringify(collectManual()));
-    try{
-      const r=await fetch('/api/analyze',{method:'POST',body:fd});
-      let data; try{ data=await r.json(); }catch(_){ throw new Error('The server did not send a proper answer (HTTP '+r.status+'). Wait 30 seconds and try again. If it keeps happening, check the Render Logs.'); }
-      if(!r.ok) throw new Error(data.error || 'Analysis failed. Please try again.');
-      lastData=data;
-      renderReport(data);
-    }catch(e){ showError(e.message); }
-    finally{ btn.disabled=false; btn.textContent='Analyze gems'; shot.classList.remove('busy'); $('busytext').classList.remove('on'); }
-  });
-
-  /* ---------- helpers for the report ---------- */
-  const PALETTE = {blue:'#2347B5',red:'#C0233F',green:'#12906A',yellow:'#E2B007',orange:'#E27A07',pink:'#E06FA0',
-    purple:'#7B3FB5',white:'#DDE3EA',colourless:'#DDE3EA',colorless:'#DDE3EA',black:'#222',brown:'#7B5130',grey:'#8A94A0',gray:'#8A94A0',teal:'#12868F'};
-  function dot(name){
-    const n=String(name||'').toLowerCase();
-    for(const k in PALETTE) if(n.includes(k)) return PALETTE[k];
-    return '#8A94A0';
-  }
-  function treatCls(t){
-    t=String(t||'').toLowerCase();
-    if(t.includes('unheated')) return 'ok';
-    if(t.includes('diffusion')||t.includes('filled')) return 'bad';
-    if(t.includes('heated')) return 'warn';
-    return 'neutral';
-  }
-  function authCls(t){
-    t=String(t||'').toLowerCase();
-    if(t.includes('natural')) return 'ok';
-    if(t.includes('synthetic')||t.includes('lab')) return 'warn';
-    if(t.includes('glass')||t.includes('imitation')) return 'bad';
-    return 'neutral';
-  }
-  const tag = (txt,cls) => `<span class="tag ${cls}">${esc(txt||'n/a')}</span>`;
-
-  function barClass(kind,name){
-    const n=String(name).toLowerCase();
-    if(kind==='treatment'){ if(n.includes('unheated')) return 't-unheated'; if(n.includes('diffusion')||n.includes('filled')||n.includes('other')) return 't-other'; if(n.includes('heated')) return 't-heated'; }
-    if(kind==='authenticity'){ if(n.includes('natural')) return 'a-natural'; if(n.includes('synth')||n.includes('lab')) return 'a-synth'; if(n.includes('glass')||n.includes('imit')) return 'a-imit'; }
-    return '';
-  }
-  function bars(list,kind){
-    if(!list || !list.length) return '<p class="meta">The models did not give an estimate.</p>';
-    return '<div class="bars">'+list.map(x=>`
-      <div class="bar"><span>${esc(x.name)}</span>
-        <div class="track" role="img" aria-label="${esc(x.name)} ${x.percent} percent"><div class="fill ${barClass(kind,x.name)}" style="width:${Math.max(2,Math.min(100,x.percent))}%"></div></div>
-        <span class="pct">${x.percent}%</span></div>`).join('')+'</div>';
-  }
-  function topLine(list,label){
-    if(!list||!list.length) return '';
-    const t=list[0]; return `<p class="verdict">Most likely ${label}: <b>${esc(t.name)}</b> (${t.percent} out of 100)</p>`;
-  }
-
-  /* ---------- markers (tap to correct the count) ---------- */
-  function drawMarkers(){
-    const box=$('markstage'); if(!box) return;
-    box.querySelectorAll('.mk').forEach(n=>n.remove());
-    markers.forEach((m,i)=>{
-      const b=document.createElement('button');
-      b.type='button'; b.className='mk'; b.textContent=i+1;
-      b.style.left=(m.x*100)+'%'; b.style.top=(m.y*100)+'%';
-      b.title='Tap to remove this marker';
-      b.addEventListener('click', ev=>{ ev.stopPropagation(); markers.splice(i,1); drawMarkers(); });
-      box.appendChild(b);
-    });
-    const v=$('verifiedNum'); if(v) v.textContent=markers.length;
-  }
-  function wireMarkers(initial){
-    markers=initial.map(p=>({x:p.x,y:p.y}));
-    const box=$('markstage'), img=$('markimg');
-    box.addEventListener('click', ev=>{
-      const r=img.getBoundingClientRect();
-      const x=(ev.clientX-r.left)/r.width, y=(ev.clientY-r.top)/r.height;
-      if(x<0||x>1||y<0||y>1) return;
-      markers.push({x:+x.toFixed(4),y:+y.toFixed(4)}); drawMarkers();
-    });
-    $('resetMarks').addEventListener('click', ()=>{ markers=initial.map(p=>({x:p.x,y:p.y})); drawMarkers(); });
-    $('clearMarks').addEventListener('click', ()=>{ markers=[]; drawMarkers(); });
-    drawMarkers();
-  }
-
-  function instrumentHtml(r){
-    const i=r.instrument;
-    const vw=r.visual_weight;
-    if(!(i && i.provided) && !vw) return '';
-    let h='<h3 class="sub">8. Instrument and weight check</h3>';
-    if(i && i.provided){
-      if(i.claim) h+=`<p class="meta">Your claim (unverified): <b>${esc(i.claim)}</b></p>`;
-      if(i.thermal_note) h+=`<div class="card"><div class="mh">Diamond tester</div><p style="margin:0">${esc(i.thermal_note)}</p></div>`;
-      if(i.candidates && i.candidates.length){
-        h+=`<div class="card"><div class="mh">Material match from your RI / SG readings</div>`+
-          i.candidates.map(c=>`<div class="match"><span><b>${esc(c.name)}</b></span>
-            <div class="track" role="img" aria-label="${esc(c.name)} match ${c.score} percent"><div class="fill ${c.simulant?'t-other':''}" style="width:${Math.max(3,c.score)}%"></div></div>
-            <span class="pct">${c.score}%</span></div><div class="meta" style="margin:-4px 0 6px">${esc(c.reasons.join('; '))}</div>`).join('')+
-          `<p class="meta" style="margin:8px 0 0">This is a match score against typical textbook ranges, not a probability. ${i.identity?'Best match: <b>'+esc(i.identity)+'</b>.':'Several materials fit about equally well, so no single material is named.'}</p></div>`;
-      }
-      if(i.evidence && i.evidence.length){
-        h+=`<div class="card"><div class="mh">Evidence used to adjust the heated and natural / synthetic odds</div><ul>${i.evidence.map(e=>`<li>${esc(e)}</li>`).join('')}</ul></div>`;
-      }
-      const w=i.weight;
-      if(w){
-        let t='';
-        if(w.measured_ct) t+=`<div>Measured weight: <b>${esc(w.measured_ct)} ct</b></div>`;
-        if(w.estimated_ct) t+=`<div>Weight from size: about <b>${esc(w.estimated_ct)} ct</b> (range ${esc(w.low)} to ${esc(w.high)} ct) using SG ${esc(w.sg_used)} from ${esc(w.sg_basis)}, ${esc(w.shape)} shape.</div>`;
-        if(w.derived_sg) t+=`<div>Density implied by your weight and size: SG about <b>${esc(w.derived_sg)}</b> (low precision, sizes are small numbers).</div>`;
-        if(w.need) t+=`<div class="meta">${esc(w.need)}</div>`;
-        if(w.check) t+=`<div style="color:var(--ruby)">${esc(w.check)}</div>`;
-        h+=`<div class="card"><div class="mh">Weight</div>${t}</div>`;
-      }
-      h+=`<p class="meta">${esc(i.caution)}</p>`;
-    }
-    if(vw){
-      h+=`<div class="card"><div class="mh">Weight estimated from the photo</div>About <b>${esc(vw.min_ct)} to ${esc(vw.max_ct)} ct</b>. Basis: ${esc(vw.basis)}</div>`;
-    } else if(!(i && i.provided && i.weight)){
-      h+='<p class="meta">Weight cannot be read from a photo without a size reference. Enter the weight, or the length, width and depth in mm, or place a ruler or coin next to the stone.</p>';
-    }
-    return h;
-  }
-
-  /* ---------- report ---------- */
-  function renderReport(data){
-    const r=data.report, panel=data.panel||[];
-    const gems=r.gems||[];
-    const agreeTxt = {high:'All models agree',medium:'Models differ slightly',low:'Models disagree: please verify by hand',single:'Only one model answered'}[r.count_agreement]||'';
-    const agreeCls = {high:'ok',medium:'warn',low:'bad',single:'neutral'}[r.count_agreement]||'neutral';
-    const modelCounts = panel.filter(p=>p.ok).map(p=>`<span class="chip"><b>${esc(p.count)}</b> ${esc(p.label)}</span>`).join('');
-    const range = (r.count_range && r.count_range[0]!==r.count_range[1]) ? ` (range ${r.count_range[0]}-${r.count_range[1]})` : '';
-
-    const rows=gems.map(g => `
-      <tr>
-        <td>${esc(g.id)}</td>
-        <td><b>${esc(g.type)}</b><br><span class="meta">${esc(g.shape_cut)}</span></td>
-        <td><span class="chip" style="padding:2px 10px"><i style="background:${dot(g.color)}"></i>${esc(g.color)}</span></td>
-        <td>${esc((g.estimated_origin||[]).join(', '))}<br><span class="meta">confidence: ${esc(g.origin_confidence)}</span></td>
-        <td>${tag(g.treatment,treatCls(g.treatment))}<br><span class="meta">confidence: ${esc(g.treatment_confidence)}</span><br><span class="meta">${esc(g.treatment_indicators)}</span></td>
-        <td>${tag(g.authenticity,authCls(g.authenticity))}<br><span class="meta">confidence: ${esc(g.authenticity_confidence)}</span></td>
-        <td>${esc(g.notes)}</td>
-      </tr>`).join('');
-
-    const panelRows=panel.map(p=>`
-      <tr><td>${esc(p.label)}</td><td>${esc(p.model)}</td>
-      <td>${p.ok?tag('answered','ok'):tag('failed','bad')}</td>
-      <td>${p.ok?esc(p.count):'-'}</td><td>${esc(p.seconds)} s</td>
-      <td>${p.ok?'':esc(p.error)}</td></tr>`).join('');
-
-    sheet.innerHTML = `
-      <div class="sheet-head">
-        <h2>Yasiru Gems &amp; Jewellery: Gem Inspection Report</h2>
-        <div class="meta">${esc(new Date().toLocaleString())} &nbsp;|&nbsp; Photo quality: ${esc(r.image_quality||'n/a')} &nbsp;|&nbsp; ${esc(r.models_used)} AI model${r.models_used>1?'s':''} used</div>
-      </div>
-
-      <h3 class="sub" style="margin-top:0">1. Gem count</h3>
-      <div class="countbox">
-        <div class="bignum">${esc(r.consensus_count)}<small>AI consensus${esc(range)}</small></div>
-        <div>
-          <div style="margin-bottom:8px">${tag(agreeTxt,agreeCls)}</div>
-          <div class="chips">${modelCounts}</div>
-        </div>
-      </div>
-
-      <div class="markbox">
-        <div class="verified">
-          <div>Your verified count: <strong id="verifiedNum">0</strong></div>
-          <span class="meta no-print">Tap a number to remove it. Tap empty space on the photo to add a missing stone.</span>
-        </div>
-        <div class="markstage" id="markstage"><img id="markimg" src="${lastImgUrl}" alt="Photo with numbered stone markers"></div>
-        <div class="row no-print">
-          <button class="btn ghost small" id="resetMarks" type="button">Reset to AI markers</button>
-          <button class="btn ghost small" id="clearMarks" type="button">Clear all and count by hand</button>
-        </div>
-        <p class="meta" style="margin-bottom:0">${r.points_from ? 'Markers suggested by '+esc(r.points_from)+'. They can be slightly off, so please check them.' : 'The models did not return stone positions. You can count by tapping each stone.'}</p>
-      </div>
-
-      <div class="grid2">
-        <div>
-          <h3 class="sub">2. Count by gem type</h3>
-          <div class="chips">${(r.summary_by_type||[]).map(t=>`<span class="chip"><b>${esc(t.count)}</b> ${esc(t.type)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
-        </div>
-        <div>
-          <h3 class="sub">3. Count by colour</h3>
-          <div class="chips">${(r.summary_by_colour||[]).map(c=>`<span class="chip"><i style="background:${dot(c.color)}"></i><b>${esc(c.count)}</b> ${esc(c.color)}</span>`).join('') || '<span class="meta">No data</span>'}</div>
-        </div>
-      </div>
-
-      <h3 class="sub">4. Origin probability (out of 100)</h3>
-      <p class="meta" style="margin-top:-4px">Rough guess from the photo. Origin can only be confirmed by a gem laboratory.</p>
-      ${bars(r.origin,'origin')}
-      ${topLine(r.origin,'origin')}
-
-      <div class="grid2">
-        <div>
-          <h3 class="sub">5. Heated or unheated</h3>
-          ${bars(r.treatment,'treatment')}
-          ${topLine(r.treatment,'status')}
-        </div>
-        <div>
-          <h3 class="sub">6. Natural or synthetic</h3>
-          ${bars(r.authenticity,'authenticity')}
-          ${topLine(r.authenticity,'result')}
-        </div>
-      </div>
-
-      <h3 class="sub">7. Stone by stone</h3>
-      <div class="tablewrap"><table>
-        <thead><tr><th>#</th><th>Type / cut</th><th>Colour</th><th>Estimated origin</th><th>Heat treatment</th><th>Authenticity</th><th>Notes</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="7">No gemstones detected.</td></tr>'}</tbody>
-      </table></div>
-      <p class="meta">Stone by stone details come from ${esc(r.lead)}, the model whose count was closest to the consensus.</p>
-
-      ${instrumentHtml(r)}
-
-      <h3 class="sub">9. Overall remarks</h3>
-      <p>${esc(r.overall_remarks)}</p>
-
-      <h3 class="sub">10. AI panel</h3>
-      <div class="tablewrap"><table style="min-width:640px">
-        <thead><tr><th>Provider</th><th>Model</th><th>Status</th><th>Count</th><th>Time</th><th>Message</th></tr></thead>
-        <tbody>${panelRows}</tbody>
-      </table></div>
-
-      <div class="note"><b>Please note:</b> This report is an AI estimate based on a photo only. Counts can be off by a few stones, and origin, heat treatment and natural or synthetic status cannot be proven from a photo. For a final decision, get a certificate from a recognised gem laboratory (e.g. NGJA or GIA).</div>
-    `;
-    report.classList.add('on');
-    wireMarkers(r.stone_points||[]);
-    report.scrollIntoView({behavior:'smooth',block:'start'});
-  }
-
-  $('printBtn').addEventListener('click', () => window.print());
-
-  /* ---------- direct PDF download (no print dialog) ---------- */
-  const LIBS={
-    canvas:['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
-            'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'],
-    pdf:['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-         'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js']};
-  function loadScript(src){ return new Promise((ok,fail)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=fail; document.head.appendChild(s); }); }
-  async function loadOne(list,ready){
-    if(ready()) return;
-    for(const src of list){ try{ await loadScript(src); if(ready()) return; }catch(_){} }
-    throw new Error('PDF library could not load');
-  }
-  const waitImages = el => Promise.all([...el.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r=>{ i.onload=i.onerror=r; })));
-
-  $('pdfBtn').addEventListener('click', async () => {
-    if(!lastData) return;
-    const btn=$('pdfBtn'), old=btn.textContent; btn.disabled=true; btn.textContent='Making PDF...'; clearError();
-    let holder=null;
-    try{
-      await loadOne(LIBS.canvas, ()=>window.html2canvas);
-      await loadOne(LIBS.pdf, ()=>window.jspdf && window.jspdf.jsPDF);
-      document.body.classList.add('pdfmode');
-      // a clean, light copy of the report, laid out at A4 width in the top-left corner
-      holder=document.createElement('div');
-      holder.style.cssText='position:absolute;left:0;top:0;width:760px;z-index:-5;pointer-events:none';
-      holder.innerHTML='<div id="pdfbox" class="sheet">'+sheet.innerHTML+'</div>';
-      holder.querySelectorAll('#pdfbox [id]').forEach(n=>n.removeAttribute('id'));
-      document.body.appendChild(holder);
-      const box=holder.firstChild;
-      await waitImages(box);
-      // safe places to start a new page: the top of each block
-      const top0=box.getBoundingClientRect().top;
-      const breaks=[...box.querySelectorAll('h2,h3,.countbox,.markbox,.bar,.match,.card,tr,.note,.grid2,p,.chips,.tablewrap')]
-        .map(n=>n.getBoundingClientRect().top-top0).filter(y=>y>0).sort((a,b)=>a-b);
-      const scale=2;
-      const canvas=await html2canvas(box,{scale,backgroundColor:'#ffffff',useCORS:true,logging:false,
-        windowWidth:760,scrollX:0,scrollY:-window.scrollY});
-      const {jsPDF}=window.jspdf;
-      const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
-      const margin=10, pageW=210-2*margin, pageH=297-2*margin;
-      const pxPerMm=canvas.width/pageW;              // canvas pixels per mm
-      const pageHpx=pageH*pxPerMm, total=canvas.height;
-      let y=0, first=true;
-      while(y < total-2){
-        let end=Math.min(y+pageHpx,total);
-        if(end<total){
-          const cands=breaks.map(b=>b*scale).filter(b=>b>y+pageHpx*0.5 && b<=end);
-          if(cands.length) end=cands[cands.length-1];
-        }
-        const slice=document.createElement('canvas'); slice.width=canvas.width; slice.height=Math.ceil(end-y);
-        const ctx=slice.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,slice.width,slice.height);
-        ctx.drawImage(canvas,0,y,canvas.width,end-y,0,0,canvas.width,end-y);
-        if(!first) doc.addPage();
-        doc.addImage(slice.toDataURL('image/jpeg',0.92),'JPEG',margin,margin,pageW,(end-y)/pxPerMm);
-        first=false; y=end;
-      }
-      const pages=doc.getNumberOfPages();
-      for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120);
-        doc.text(`Yasiru Gems & Jewellery  |  page ${i} of ${pages}`,105,292,{align:'center'}); }
-      const d=new Date(), pad=n=>String(n).padStart(2,'0');
-      doc.save(`Yasiru-Gems-Report-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.pdf`);
-    }catch(e){
-      console.error('PDF error:', e);
-      showError('Could not make the PDF on this device. Use the Print button and choose "Save as PDF".');
-    }finally{
-      if(holder) holder.remove();
-      document.body.classList.remove('pdfmode'); btn.disabled=false; btn.textContent=old;
-    }
-  });
-
-  $('jsonBtn').addEventListener('click', () => {
-    if(!lastData) return;
-    const out=Object.assign({}, lastData, {verified_count:markers.length, verified_markers:markers});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
-    a.download='gem-report.json'; a.click();
-  });
-})();
-</script>
+<script src="i18n.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
