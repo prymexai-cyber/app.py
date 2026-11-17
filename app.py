@@ -31,8 +31,8 @@ from PIL import Image, ImageOps
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024
 
-TIMEOUT = 60  # seconds per single AI call
-DEADLINE = 80  # seconds: the whole analysis always answers before this
+TIMEOUT = 70  # seconds per single AI call
+DEADLINE = 100  # seconds: the whole analysis always answers before this (gunicorn timeout is 120)
 GRACE = 12  # once 2 models have answered, wait at most this many extra seconds for the rest
 MAX_IMAGES = 10  # photos + video frames per analysis
 
@@ -77,8 +77,7 @@ PROVIDERS = {
     "gemini": {
         "label": "Gemini",
         "keys": env_keys("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY"),
-        "models": model_list("GEMINI_MODEL", "gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest",
-                             "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-pro"),
+        "models": model_list("GEMINI_MODEL", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"),
         "max_images": 10,
     },
     "anthropic": {
@@ -1042,12 +1041,73 @@ def openrouter_free_vision(key):
     return ids
 
 
+_disc = {}
+
+
+def _cached(name, fn, ttl=3600):
+    hit = _disc.get(name)
+    if hit and time.time() - hit[0] < ttl:
+        return hit[1]
+    try:
+        val = fn()
+    except Exception:
+        val = None
+    if val:
+        _disc[name] = (time.time(), val)
+    return val
+
+
+def gemini_available(key):
+    """Ask Google which Gemini models this key can use right now (models get retired often)."""
+    def fetch():
+        r = requests.get("https://generativelanguage.googleapis.com/v1beta/models",
+                         params={"pageSize": 200}, headers={"x-goog-api-key": key}, timeout=8)
+        out = []
+        for m in r.json().get("models", []):
+            n = m.get("name", "").replace("models/", "")
+            if "generateContent" not in (m.get("supportedGenerationMethods") or []):
+                continue
+            if "flash" not in n and "pro" not in n:
+                continue
+            if re.search(r"image|tts|audio|live|embed|preview-tts|computer|robotics|exp|thinking|nano|veo|imagen", n):
+                continue
+            out.append(n)
+        return out
+    return _cached("gemini", fetch) or []
+
+
+def groq_available(key):
+    def fetch():
+        r = requests.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {key}"}, timeout=8)
+        return [m["id"] for m in r.json().get("data", []) if m.get("active", True)]
+    return _cached("groq", fetch) or []
+
+
+def _version(n):
+    v = re.search(r"(\d+(?:\.\d+)?)", n)
+    return float(v.group(1)) if v else 0.0
+
+
 def models_for(name, cfg):
     models = list(cfg["models"])
     if name == "openrouter" and cfg["keys"]:
         for m in openrouter_free_vision(cfg["keys"][0]):
             if m not in models:
                 models.append(m)
+    elif name == "gemini" and cfg["keys"]:
+        avail = gemini_available(cfg["keys"][0])
+        if avail:
+            pinned = [m for m in models if m in avail or m.endswith("-latest")]
+            # newest flash first, then flash-lite, then pro (slow) as the last resort
+            extra = sorted((m for m in avail if m not in pinned),
+                           key=lambda n: ("pro" in n, "lite" in n, "preview" in n, -_version(n)))
+            models = pinned + extra[:4]
+    elif name == "groq" and cfg["keys"]:
+        avail = groq_available(cfg["keys"][0])
+        if avail:
+            keep = [m for m in models if m in avail]
+            vision = [m for m in avail if m not in keep and re.search(r"llama-4|vision|-vl|qwen3\.\d|gemma-?3", m)]
+            models = (keep + vision) or models
     return models
 
 
@@ -1253,7 +1313,16 @@ def run_provider(name, images, user_text, stop_at=None):
     random.shuffle(keys)
     bad_keys = set()
     last_err = "unknown error"
+    attempts = []
     per_call = cfg.get("timeout", TIMEOUT)
+
+    def summary():
+        seen, out = set(), []
+        for a in attempts:
+            if a not in seen:
+                seen.add(a)
+                out.append(a)
+        return " | ".join(out[-4:]) or last_err
 
     models = models_for(name, cfg)
     last_model = models[0] if models else "auto"
@@ -1267,10 +1336,9 @@ def run_provider(name, images, user_text, stop_at=None):
                 tries += 1
                 left = stop_at - time.time()
                 if left < 8:
-                    if last_err == "unknown error":
-                        last_err = "ran out of time"
+                    attempts.append("ran out of time")
                     return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
-                            "error": last_err, "ms": int((time.time() - started) * 1000)}
+                            "error": summary(), "ms": int((time.time() - started) * 1000)}
                 try:
                     status, text, err = caller(key, model, images, user_text, timeout=min(per_call, left - 2))
                 except requests.exceptions.JSONDecodeError:
@@ -1279,6 +1347,7 @@ def run_provider(name, images, user_text, stop_at=None):
                     break
                 except requests.Timeout:
                     last_err = f"{model} timed out"
+                    attempts.append(last_err)
                     break
                 except requests.RequestException as e:
                     last_err = f"network error: {type(e).__name__}"
@@ -1291,10 +1360,12 @@ def run_provider(name, images, user_text, stop_at=None):
                         rep = normalize_report(extract_json(text))
                     except Exception:
                         last_err = f"{model} did not return valid JSON"
+                        attempts.append(last_err)
                         break
                     return {"provider": name, "label": cfg["label"], "model": model, "ok": True,
                             "report": rep, "ms": int((time.time() - started) * 1000), "images_used": len(images)}
                 last_err = f"{status}: {err}"
+                attempts.append(f"{model} → {status} {err[:140]}")
                 lim = image_limit(err) if status in (400, 413, 422) else None
                 if lim and lim < len(images) and tries < 3:
                     images = images[:lim]  # obey the model's image limit and ask again
@@ -1302,15 +1373,15 @@ def run_provider(name, images, user_text, stop_at=None):
                 if status in RETRYABLE and tries < 2 and stop_at - time.time() > 20:
                     time.sleep(2.0)  # short back-off, then one more try with the same key
                     continue
-                if status in (401, 403):
+                if status in (401, 403) or re.search(r"api key not valid|invalid api key|invalid_api_key", err or "", re.I):
                     bad_keys.add(key)
                 break
-            if last_err.startswith("404"):
-                break  # this model does not exist: go to the next model
+            if last_err.startswith(("404", "400")):
+                break  # this model does not exist or refuses the request: go to the next model
         if keys and all(k in bad_keys for k in keys):
             break
     return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
-            "error": last_err, "ms": int((time.time() - started) * 1000)}
+            "error": summary(), "ms": int((time.time() - started) * 1000)}
 
 
 # --------------------------------------------------------------------------
@@ -1591,7 +1662,7 @@ def analyze():
     files = [f for f in files if f and f.filename is not None][:MAX_IMAGES]
     if not files:
         return jsonify(error="No image was received."), 400
-    side = 1600 if len(files) <= 3 else 1280
+    side = 1600 if len(files) <= 2 else 1280 if len(files) <= 4 else 1024
     images = []
     for f in files:
         try:
