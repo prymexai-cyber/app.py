@@ -330,7 +330,7 @@ function loupeQuestion(box){
 }
 function renderQuestions(qs){
   const box=$('qlist'); box.innerHTML='';
-  const needLoupe = lastData?.report?.gate?.auth_status==='undetermined';
+  const needLoupe = !!lastData?.report?.gate?.need_loupe;
   $('qcard').classList.toggle('on', qs.length>0 || needLoupe);
   if(needLoupe) loupeQuestion(box);
   qs.forEach(q=>{
@@ -352,7 +352,7 @@ function renderQuestions(qs){
 function countAnswers(){ $('qcount').textContent = T('q_answered',{n:collectAnswers().length}); }
 
 /* ---------------- report helpers ---------------- */
-const NAME_KEY = {'unheated':'tr_unheated','heated':'tr_heated','diffusion-treated / filled':'tr_treated','natural':'au_natural','synthetic / lab-grown':'au_synthetic','glass / imitation':'au_glass','other':'other'};
+const NAME_KEY = {'not applicable':'na','unheated':'tr_unheated','heated':'tr_heated','diffusion-treated / filled':'tr_treated','natural':'au_natural','synthetic / lab-grown':'au_synthetic','glass / imitation':'au_glass','other':'other'};
 const tn = n => { const k=NAME_KEY[String(n).toLowerCase()]; return k?T(k):n; };
 const confT = c => ({low:T('low'),medium:T('medium'),high:T('high')}[String(c).toLowerCase()]||c||'');
 function enumT(s){
@@ -414,7 +414,10 @@ function weightInfo(r, t=T){
   if(!out.length && r.visual_weight) out.push([t('r_photo_weight'), `${r.visual_weight.min_ct} – ${r.visual_weight.max_ct} ct`]);
   return out;
 }
-function idName(r){ const id=r.identification||{}; return (lang!=='en' && id.name_local) || id.variety || id.species || '-'; }
+function idName(r){ const id=r.identification||{}; const n=(lang!=='en' && id.name_local) || id.variety || id.species || '-';
+  const v=r.gate?.auth_verdict; return v==='Synthetic / lab-grown' ? T('au_synthetic').split('/')[0].trim()+' · '+n : v==='Glass / imitation' ? T('au_glass')+' · '+n : n; }
+function titleEn(r){ const id=r.identification||{}; const n=id.variety||id.species||'Gemstone'; const v=r.gate?.auth_verdict;
+  return v==='Synthetic / lab-grown' ? 'Synthetic '+n : v==='Glass / imitation' ? 'Imitation of '+n : n; }
 
 /* ---------------- markers ---------------- */
 function drawMarkers(){
@@ -447,7 +450,21 @@ function renderReport(data){
   const firstImg = ordered()[0]?.url || '';
   const locReason = lang!=='en' ? (r.local?.reasoning||'') : '', locConcl = lang!=='en' ? (r.local?.conclusion||'') : '';
   const topAuth=(r.authenticity||[])[0], topTreat=(r.treatment||[])[0], topOrigin=(r.origin||[])[0];
-  const authU = r.gate?.auth_status==='undetermined', treatU = r.gate?.treat_status==='undetermined';
+  const gate = r.gate||{};
+  const stPill = st => st?`<span class="pill ${({strong:'ok',probable:'warn',indicative:'neutral'})[st]||'neutral'}">${esc(T('st_'+st))}</span>`:'';
+  const ptCls = p => ({natural:'ok',unheated:'ok',synthetic:'bad',imitation:'bad',heated:'warn'})[String(p).toLowerCase()]||'neutral';
+  const ptTxt = p => ({natural:T('au_natural'),synthetic:T('au_synthetic'),imitation:T('au_glass'),heated:T('tr_heated'),unheated:T('tr_unheated')})[String(p).toLowerCase()]||p;
+  const forensic = (gate.features?.length || r.closeup || gate.notes?.length) ? `<div class="sec box">
+      <h3>${esc(T('r_forensic'))}</h3>
+      ${r.closeup?`<div style="display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px">
+        <figure style="margin:0"><img src="${r.closeup.crop}" alt="" style="width:200px;max-width:42vw;border-radius:10px;display:block"><figcaption class="meta">${esc(T('r_closeup'))}</figcaption></figure>
+        <figure style="margin:0"><img src="${r.closeup.enhanced}" alt="" style="width:200px;max-width:42vw;border-radius:10px;display:block"><figcaption class="meta">${esc(T('r_enhanced'))}</figcaption></figure></div>`:''}
+      ${gate.features?.length?`<table><tbody>${gate.features.map(f=>`<tr><td class="meta" style="width:50px">#${esc(f.image)}</td><td>${esc(f.feature)}</td><td><span class="pill ${ptCls(f.points_to)}">${esc(ptTxt(f.points_to))}</span></td></tr>`).join('')}</tbody></table>`:''}
+      ${gate.notes?.length?`<ul>${gate.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul>`:''}
+      ${gate.expert_reasoning?`<p style="margin:8px 0 0">${esc(gate.expert_reasoning)}</p>`:''}
+      ${gate.metrics?.uniformity!=null?`<p class="meta" style="margin:6px 0 0">${esc(T('r_uniform'))}: ${Math.round(gate.metrics.uniformity*100)}/100</p>`:''}
+      ${gate.need_loupe?`<p class="meta" style="margin:8px 0 0;color:var(--amber)">${esc(T('auth_tip'))}</p>`:''}
+    </div>` : '';
   const fromText = inst.from_text && Object.keys(inst.from_text).length
     ? `<p class="meta">${esc(T('r_from_text'))}: ${Object.entries(inst.from_text).map(([k,v])=>esc(k+': '+(Array.isArray(v)?v.join('–'):v))).join(' · ')}</p>` : '';
 
@@ -498,12 +515,12 @@ function renderReport(data){
     </div>
 
     <div class="grid3">
-      <div class="box"><h3>${esc(T('r_auth'))}</h3><div class="verdict"${authU?' style="color:var(--amber)"':''}>${esc(authU?T('undetermined'):(topAuth?tn(topAuth.name):'-'))}</div>${authU?`<p class="meta" style="margin:0 0 6px">${esc(T('indicative'))}</p>`:''}${bars(r.authenticity,true)}</div>
-      <div class="box"><h3>${esc(T('r_treat'))}</h3><div class="verdict"${treatU?' style="color:var(--amber)"':''}>${esc(treatU?T('undetermined'):(topTreat?tn(topTreat.name):'-'))}</div>${treatU?`<p class="meta" style="margin:0 0 6px">${esc(T('indicative'))}</p>`:''}${bars(r.treatment,true)}</div>
+      <div class="box"><h3>${esc(T('r_auth'))}</h3><div class="verdict">${esc(tn(gate.auth_verdict||topAuth?.name||'-'))}</div><div style="margin:-2px 0 6px">${stPill(gate.auth_strength)}</div>${bars(r.authenticity,true)}</div>
+      <div class="box"><h3>${esc(T('r_treat'))}</h3><div class="verdict">${esc(tn(gate.treat_verdict||topTreat?.name||'-'))}</div><div style="margin:-2px 0 6px">${gate.treat_verdict==='Not applicable'?'':stPill(gate.treat_strength)}</div>${gate.treat_verdict==='Not applicable'?'':bars(r.treatment,true)}</div>
       <div class="box"><h3>${esc(T('r_origin'))}</h3><div class="verdict">${esc(topOrigin?topOrigin.name:'-')}</div>${bars(r.origin,false)}</div>
     </div>
 
-    ${authU?`<div class="sec warnbox"><b>${esc(T('undetermined'))}: ${esc(T('r_auth'))}</b><p style="margin:6px 0 0">${esc(T('auth_need'))}</p></div>`:''}
+    ${forensic}
     ${(locConcl||r.conclusion)?`<div class="sec"><h3>${esc(T('r_conclusion'))}</h3><div class="conclusion">${esc(locConcl||r.conclusion)}</div>
       ${(r.treatment_statement||r.origin_statement)?`<p class="meta" style="margin:8px 0 0">${esc([r.treatment_statement,r.origin_statement].filter(Boolean).join(' '))}</p>`:''}</div>`:''}
     ${conflicts}
@@ -566,7 +583,7 @@ function onePageHtml(data, client){
   const g0=(r.gems||[])[0]||{};
   const est = l => (l||[]).filter(x=>x.name!=='Other').slice(0,3).map(x=>`${esc(ENUM_EN[String(x.name).toLowerCase()]||x.name)} ${Math.round(x.percent)}%`).join(' · ');
   const top = l => l&&l.length ? (ENUM_EN[String(l[0].name).toLowerCase()]||l[0].name) : '';
-  const imgs = ordered().slice(0,5).map(m=>`<img src="${m.url}" alt="">`).join('');
+  const imgs = ordered().slice(0, r.closeup?4:5).map(m=>`<img src="${m.url}" alt="">`).join('') + (r.closeup?`<img src="${r.closeup.enhanced}" alt="">`:'');
   const wi = weightInfo(r,E), rd = readingRows(r,E);
   const weight = wi.find(w=>w[0]===E('r_measured'))?.[1] || wi.find(w=>w[0]===E('r_from_size'))?.[1] || wi.find(w=>w[0]===E('r_photo_weight'))?.[1] || '';
   const meas = wi.find(w=>/mm$/.test(w[1]))?.[1] || '';
@@ -575,15 +592,15 @@ function onePageHtml(data, client){
     [E('pdf_transp'), cap(id.transparency)], [E('pdf_phen'), id.phenomenon && !/^none$/i.test(id.phenomenon) ? cap(id.phenomenon) : ''],
     [E('pdf_count'), r.consensus_count>1 ? String(r.consensus_count) : '']
   ].filter(x=>x[1]);
-  const authU = r.gate?.auth_status==='undetermined', treatU = r.gate?.treat_status==='undetermined';
-  const identLine = authU ? 'Not determined – microscopic examination required' : (id.natural_or_synthetic || top(r.authenticity) || 'Undetermined');
+  const identLine = id.natural_or_synthetic || top(r.authenticity) || 'Undetermined';
+  const treatNA = r.gate?.treat_verdict==='Not applicable';
   const results = [
     [E('r_species'), esc(id.species||'-')],
     [E('r_variety'), esc(id.variety||'-')],
     ...(id.group?[[E('pdf_group'), esc(id.group)]]:[]),
-    [E('pdf_ident'), `${esc(cap(identLine))}${authU?'':`<small>${esc(E('pdf_estimate'))}: ${est(r.authenticity)||'-'}</small>`}`],
-    [E('pdf_treat'), `${esc(treatU ? 'Not determined on the basis of the tests performed' : (r.treatment_statement || top(r.treatment) || 'Not determined'))}${treatU?'':`<small>${esc(E('pdf_estimate'))}: ${est(r.treatment)||'-'}</small>`}`],
-    [E('pdf_origin'), `${esc(r.origin_statement || top(r.origin) || 'Not determined')}<small>${esc(E('pdf_estimate'))}: ${est(r.origin)||'-'}</small>`],
+    [E('pdf_ident'), `${esc(cap(identLine))}<small>${esc(E('pdf_estimate'))}: ${est(r.authenticity)||'-'}</small>`],
+    [E('pdf_treat'), `${esc(r.treatment_statement || top(r.treatment) || 'Not determined')}${treatNA?'':`<small>${esc(E('pdf_estimate'))}: ${est(r.treatment)||'-'}</small>`}`],
+    [E('pdf_origin'), `${esc(r.origin_statement || top(r.origin) || 'Not determined')}${(r.origin||[]).length?`<small>${esc(E('pdf_estimate'))}: ${est(r.origin)}</small>`:''}`],
   ];
   const tr = rows => rows.map(([a,b])=>`<tr><td>${esc(a)}</td><td>${b}</td></tr>`).join('');
   const half = Math.ceil(rd.length/2);
@@ -600,7 +617,7 @@ function onePageHtml(data, client){
       <div class="pdoc"><div class="serif">${esc(E('pdf_title'))}</div><div>No. <b>${esc(r.report_no)}</b> &nbsp;·&nbsp; ${esc(date)}</div></div>
     </div>
     <div class="pclient"><div><span>${esc(E('pdf_issued'))}</span><b>${esc(client.name)}</b></div>${client.phone?`<div><span>${esc(E('pdf_tel'))}</span>${esc(client.phone)}</div>`:''}${client.email?`<div><span>${esc(E('pdf_email'))}</span>${esc(client.email)}</div>`:''}</div>
-    <div class="ptitle serif">${esc(id.variety||id.species||'Gemstone')}</div>
+    <div class="ptitle serif">${esc(titleEn(r))}</div>
     <div class="ptsub">${esc([id.species, id.group].filter(Boolean).join(' · '))}</div>
     <div class="pgrid">
       <div>

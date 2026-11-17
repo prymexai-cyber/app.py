@@ -1,6 +1,6 @@
 /* Interface text. English, Sinhala and Tamil are built in; every other language is
    translated once by the AI panel (/api/ui-text) and cached in the browser. */
-window.I18N_VERSION = 6;
+window.I18N_VERSION = 7;
 window.LANGS = [
   ["en","English","en-US"],["si","සිංහල","si-LK"],["ta","தமிழ்","ta-LK"],["hi","हिन्दी","hi-IN"],
   ["zh","中文","zh-CN"],["ja","日本語","ja-JP"],["ko","한국어","ko-KR"],["th","ไทย","th-TH"],
@@ -14,6 +14,9 @@ window.RTL = ["ar","fa","ur"];
 
 window.I18N = {
 en: {
+  st_strong:"strong evidence", st_probable:"probable", st_indicative:"indicative", na:"Not applicable",
+  r_forensic:"Natural / synthetic forensic check", r_closeup:"Stone close-up", r_enhanced:"Contrast-enhanced (growth lines)", r_uniform:"Colour uniformity (image analysis)",
+  auth_tip:"For a stronger result, check the stone with a 10x loupe and answer the loupe question above.",
   undetermined:"Not determined", indicative:"Not enough evidence. The bars below are only a rough indication.",
   auth_need:"Natural and synthetic stones of this kind have the same colour, RI and SG, so photos cannot separate them. Look inside the stone with a 10x loupe or microscope: curved lines or round gas bubbles mean synthetic; fine silk needles, crystals or fingerprint-like feathers mean natural. Tick what you see and re-analyze.",
   lq_q:"Look inside the stone with a 10x loupe or microscope. What do you see?", lq_note:"This is the only way to tell natural from synthetic without a lab. Tap everything you see.",
@@ -112,6 +115,9 @@ en: {
 },
 
 si: {
+  st_strong:"ශක්තිමත් සාක්ෂි", st_probable:"බොහෝ දුරට", st_indicative:"ඇඟවීමක් පමණි", na:"අදාළ නොවේ",
+  r_forensic:"ස්වභාවිකද කෘත්‍රිමද: විශේෂ පරීක්ෂාව", r_closeup:"මැණිකේ සමීප රූපය", r_enhanced:"වෙනස වැඩි කළ රූපය (වර්ධන රේඛා)", r_uniform:"වර්ණ ඒකාකාරිත්වය (රූප විශ්ලේෂණය)",
+  auth_tip:"වඩා ශක්තිමත් ප්‍රතිඵලයක් සඳහා 10x ලූප් එකකින් මැණික බලා ඉහත ලූප් ප්‍රශ්නයට පිළිතුරු දෙන්න.",
   undetermined:"තීරණය කළ නොහැක", indicative:"ප්‍රමාණවත් සාක්ෂි නැත. පහත තීරු දළ ඇස්තමේන්තුවක් පමණි.",
   auth_need:"මෙවැනි ස්වභාවික සහ කෘත්‍රිම මැණික්වල වර්ණය, RI සහ SG එක සමානයි, ඒ නිසා ඡායාරූප වලින් ඒවා වෙන් කළ නොහැක. 10x ලූප් එකකින් හෝ අන්වීක්ෂයකින් මැණික ඇතුළත බලන්න: වක්‍ර රේඛා හෝ රවුම් වායු බුබුළු නම් කෘත්‍රිමයි; සියුම් සිල්ක් ඉඳිකටු, ස්ඵටික හෝ ඇඟිලි සලකුණු වැනි පිහාටු නම් ස්වභාවිකයි. දුටු දේ තෝරා නැවත විශ්ලේෂණය කරන්න.",
   lq_q:"10x ලූප් එකකින් හෝ අන්වීක්ෂයකින් මැණික ඇතුළත බලන්න. ඔබට පෙනෙන්නේ මොනවාද?", lq_note:"රසායනාගාරයක් නැතිව ස්වභාවිකද කෘත්‍රිමද කියා දැනගත හැකි එකම ක්‍රමය මෙයයි. පෙනෙන සියල්ල තෝරන්න.",
@@ -205,6 +211,9 @@ si: {
 },
 
 ta: {
+  st_strong:"வலுவான சான்று", st_probable:"பெரும்பாலும்", st_indicative:"குறிப்பு மட்டும்", na:"பொருந்தாது",
+  r_forensic:"இயற்கையா செயற்கையா: சிறப்பு சோதனை", r_closeup:"கல்லின் அருகாமை படம்", r_enhanced:"மாறுபாடு கூட்டிய படம் (வளர்ச்சிக் கோடுகள்)", r_uniform:"நிற சீரான தன்மை (பட பகுப்பாய்வு)",
+  auth_tip:"வலுவான முடிவுக்கு 10x லூப்பால் கல்லைப் பார்த்து மேலே உள்ள லூப் கேள்விக்கு பதிலளிக்கவும்.",
   undetermined:"தீர்மானிக்க முடியவில்லை", indicative:"போதுமான சான்று இல்லை. கீழே உள்ள பட்டைகள் தோராயமான குறிப்பு மட்டுமே.",
   auth_need:"இந்த வகை இயற்கை மற்றும் செயற்கை கற்களுக்கு ஒரே நிறம், RI மற்றும் SG உள்ளது, எனவே புகைப்படங்களால் அவற்றைப் பிரிக்க முடியாது. 10x லூப் அல்லது நுண்ணோக்கியால் கல்லின் உள்ளே பாருங்கள்: வளைந்த கோடுகள் அல்லது வட்ட வாயு குமிழ்கள் என்றால் செயற்கை; நுண்ணிய சில்க் ஊசிகள், படிகங்கள் அல்லது கைரேகை போன்றவை என்றால் இயற்கை. கண்டதைத் தேர்ந்தெடுத்து மீண்டும் பகுப்பாய்வு செய்யவும்.",
   lq_q:"10x லூப் அல்லது நுண்ணோக்கியால் கல்லின் உள்ளே பாருங்கள். என்ன தெரிகிறது?", lq_note:"ஆய்வகம் இல்லாமல் இயற்கையா செயற்கையா என்று அறியும் ஒரே வழி இது. தெரியும் அனைத்தையும் தேர்ந்தெடுக்கவும்.",
