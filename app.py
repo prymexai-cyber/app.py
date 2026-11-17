@@ -26,7 +26,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
-from PIL import Image, ImageOps
+from PIL import Image, ImageChops, ImageFilter, ImageOps, ImageStat
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024
@@ -314,6 +314,7 @@ OBS = {
 }
 
 TREAT_KEYS = ("Unheated", "Heated", "Diffusion-treated / filled")
+AUTH_KEYS = ("Natural", "Synthetic / lab-grown", "Glass / imitation")
 NAT_OBS = {"silk_intact", "fingerprints", "mineral_crystals", "zoning_angular", "three_phase", "horsetail", "lily_pad"}
 SYN_OBS = {"curved_striae", "plato_lines", "chevron", "nailhead", "flux", "bubbles", "swirl"}
 HEAT_OBS = {"silk_intact", "silk_broken", "discoid", "pits", "flash_effect", "edge_color", "glass_filled"}
@@ -321,58 +322,6 @@ HEAT_OBS = {"silk_intact", "silk_broken", "discoid", "pits", "flash_effect", "ed
 OFTEN_SYNTHETIC = {"Corundum (sapphire / ruby)", "Spinel", "Beryl (emerald / aquamarine / morganite)",
                    "Chrysoberyl (alexandrite / cat's eye)", "Quartz (amethyst / citrine / smoky)", "Diamond",
                    "Opal", "Turquoise", "Moissanite", "Garnet", "Tourmaline", "Topaz"}
-
-
-def evidence_gate(manual, ok, species, authenticity, treatment, sim_or_moiss):
-    """Decide whether natural/synthetic and heated/unheated can honestly be called at all."""
-    m = manual or {}
-    obs = set(m.get("observations", []))
-    # inclusions the AI panel says it can see: synthetic signs count from one model, natural signs need two
-    seen = Counter(c for r in ok for c in set(r["report"].get("visible_inclusions") or []))
-    ai_syn = {c for c, n in seen.items() if c in SYN_OBS}
-    ai_nat = {c for c, n in seen.items() if c in NAT_OBS and n >= 2}
-    lab = bool(m.get("lab_text"))
-    spec = set(m.get("spectro", []))
-    auth_basis = sorted((obs & (NAT_OBS | SYN_OBS)) | ai_syn | ai_nat)
-    if lab:
-        auth_basis.append("lab data")
-    if spec & {"iron_450", "cobalt"} or (m.get("chelsea") in ("red", "pink")):
-        auth_basis.append("spectroscope / filter")
-    if sim_or_moiss:
-        auth_basis.append("instrument identification")
-    if m.get("magnet") in ("weak", "strong") and "Diamond" in (species or ""):
-        auth_basis.append("magnet")
-    treat_basis = sorted((obs & HEAT_OBS) | ({c for c in seen if c in HEAT_OBS and seen[c] >= 2}))
-    if lab:
-        treat_basis.append("lab data")
-
-    out = {"auth_status": "determined", "treat_status": "determined", "auth_basis": auth_basis, "treat_basis": treat_basis,
-           "ai_seen": sorted(seen)}
-    if ai_syn and not (obs & NAT_OBS):
-        # the photos show synthetic growth features: push the odds towards synthetic
-        a = canon(authenticity, "a") or {k: 33.3 for k in AUTH_KEYS}
-        a = {k: max(v, 1.0) for k, v in a.items()}
-        a["Synthetic / lab-grown"] *= 6
-        a["Natural"] *= 0.25
-        authenticity = finish_dist(a)
-    if not auth_basis:
-        out["auth_status"] = "undetermined"
-        a = canon(authenticity, "a") or {k: 33.3 for k in AUTH_KEYS}
-        common = species in OFTEN_SYNTHETIC
-        prior = ({"Natural": 45, "Synthetic / lab-grown": 45, "Glass / imitation": 10} if common
-                 else {"Natural": 55, "Synthetic / lab-grown": 25, "Glass / imitation": 20})
-        total = sum(a.values()) or 1
-        a = {k: 0.15 * a.get(k, 0) * 100 / total + 0.85 * prior[k] for k in AUTH_KEYS}
-        authenticity = finish_dist(a)
-    if not treat_basis:
-        out["treat_status"] = "undetermined"
-        t = canon(treatment, "t") or {k: 33.3 for k in TREAT_KEYS}
-        total = sum(t.values()) or 1
-        prior = {"Unheated": 40, "Heated": 50, "Diffusion-treated / filled": 10}
-        t = {k: 0.3 * t.get(k, 0) * 100 / total + 0.7 * prior[k] for k in TREAT_KEYS}
-        treatment = finish_dist(t)
-    return out, authenticity, treatment
-AUTH_KEYS = ("Natural", "Synthetic / lab-grown", "Glass / imitation")
 
 
 # --------------------------------------------------------------------------
@@ -1497,6 +1446,250 @@ def run_provider(name, image_sets, user_text, stop_at=None):
 
 
 # --------------------------------------------------------------------------
+# Forensic natural / synthetic engine
+# --------------------------------------------------------------------------
+AUTH_PRIOR_COMMON = {"Natural": 45, "Synthetic / lab-grown": 45, "Glass / imitation": 10}
+AUTH_PRIOR_OTHER = {"Natural": 60, "Synthetic / lab-grown": 25, "Glass / imitation": 15}
+HEAT_PRIOR = {  # unheated, heated, diffusion/filled - typical market share
+    "Corundum (sapphire / ruby)": (25, 68, 7), "Tanzanite / Zoisite": (5, 93, 2), "Zircon": (30, 68, 2),
+    "Beryl (emerald / aquamarine / morganite)": (35, 35, 30), "Topaz": (40, 55, 5), "Quartz (amethyst / citrine / smoky)": (55, 40, 5),
+    "Tourmaline": (60, 35, 5), "Spinel": (85, 13, 2), "Garnet": (95, 4, 1), "Chrysoberyl (alexandrite / cat's eye)": (90, 8, 2),
+}
+CALIBRATED = [(4, 3), (5, 3), (5, 4), (6, 4), (7, 5), (8, 6), (9, 7), (10, 8), (11, 9), (12, 10), (14, 10), (16, 12)]
+
+EXPERT_PROMPT = """You are a forensic gemmologist whose ONLY task is to decide whether the stone in the images is NATURAL, SYNTHETIC (laboratory-grown), an IMITATION (glass, plastic, other simulant) or a COMPOSITE (doublet/triplet), and whether a natural stone is heated. You must always give your best decision with honest probabilities - never refuse. Images may include a cropped close-up of the stone and a contrast-enhanced version of that crop: use the enhanced crop to look for curved colour banding, growth lines and inclusions.
+
+Return ONLY this JSON:
+{"species_guess":"e.g. Corundum, Spinel, Beryl, Glass",
+ "authenticity":{"verdict":"natural|synthetic|imitation|composite","synthetic_process":"flame-fusion|flux|hydrothermal|Czochralski|CVD|HPHT|unknown|n/a","p_natural":0-100,"p_synthetic":0-100,"p_imitation":0-100},
+ "heat":{"verdict":"heated|unheated|not applicable","p_heated":0-100},
+ "features":[{"image":1,"feature":"what you actually see, where","points_to":"natural|synthetic|imitation|heated|unheated"}],
+ "visible_inclusions":["codes you clearly see: silk_intact, silk_broken, discoid, fingerprints, mineral_crystals, zoning_angular, curved_striae, bubbles, swirl, flux, chevron, nailhead, very_clean, uniform_color"],
+ "cut_style":"native|commercial|precision|unknown",
+ "reasoning":"2-4 sentences in English"}
+p_natural + p_synthetic + p_imitation = 100.
+
+CHECKLIST - go through every point and every image:
+1. Growth features: curved striae or curved colour bands (flame-fusion corundum/spinel = SYNTHETIC); straight, angular or hexagonal colour zoning (NATURAL corundum); chevron / zig-zag growth or nail-head spicules (hydrothermal SYNTHETIC); swirls and flow lines (GLASS).
+2. Inclusions: rutile silk needles crossing at 60/120 degrees, crystals with tension halos, healed fingerprints, feathers, negative crystals (NATURAL); round or elongated (tadpole) gas bubbles (flame-fusion SYNTHETIC or GLASS); flux fingerprints, wispy veils, triangular platinum platelets (flux SYNTHETIC); metallic flux and pinpoint clouds (HPHT diamond).
+3. Clarity and colour: an eye-clean AND loupe-clean stone with perfectly even, vivid, "electric" colour and no zoning is typical of synthetic corundum, spinel and alexandrite. Natural sapphires usually show uneven colour, zoning, silk or some inclusions. A completely flawless stone of a commonly synthesised species should get p_synthetic of at least 55 unless natural features are visible.
+4. Cutting style: native/local cutting (asymmetric outline, bulging or deep pavilion, off-centre culet, windowing, uneven facets, kept weight) is typical of NATURAL Sri Lankan and East-African coloured stones. Perfectly symmetrical, precision-cut, calibrated sizes (6x4, 7x5, 8x6 mm) are typical of cheap synthetics and treated commercial goods.
+5. Surface: rounded, soft facet edges, mould marks, orange-peel surface, conchoidal chips and low lustre = GLASS / moulded imitation. Polish lines on adjacent facets in different directions are normal.
+6. Composite: a separation plane at the girdle, flattened bubbles in one plane, colour only in the pavilion, different lustre between crown and pavilion, red ring when the stone is placed table-down on white paper = DOUBLET / TRIPLET.
+7. Phenomena: perfectly sharp, straight star rays with even colour = synthetic star corundum; natural stars have slightly uneven rays and silk. Too-perfect play-of-colour columns ("lizard skin") = synthetic opal.
+8. Heat (natural stones only): dissolved / dotted silk, discoid tension halos around crystals, melted glassy crystals, very even colour = heated; intact sharp silk = unheated. Most blue sapphires, tanzanite and blue zircon in the trade are heated.
+9. Client data: RI, SG and pleochroism only identify the species; they do NOT separate natural from synthetic. Trust what the client reports seeing under the loupe or microscope, UV reactions (chalky blue-green short-wave UV in blue sapphire suggests synthetic or heat), Chelsea filter (red in blue stone = cobalt synthetic spinel or glass) and spectroscope (450 nm iron band supports natural blue sapphire).
+Only list features you truly see. If the images are poor, say so in reasoning and keep probabilities moderate, but still choose the most likely verdict."""
+
+
+def analyse_stone(b64):
+    """Find the stone in a photo, return a tight crop, a contrast-enhanced crop and colour metrics."""
+    try:
+        img = Image.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
+    except Exception:
+        return None
+    W, H = img.size
+    h, s, v = img.convert("HSV").split()
+    sat = s.point(lambda x: 255 if x > 70 else 0)
+    lit = v.point(lambda x: 255 if 35 < x < 250 else 0)
+    mask = ImageChops.multiply(sat, lit).filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(7))
+    frac = ImageStat.Stat(mask).mean[0] / 255.0
+    bbox = mask.getbbox() if frac > 0.004 else None
+    if not bbox:  # colourless or very pale stone: take the centre of the picture
+        bbox = (int(W * 0.2), int(H * 0.2), int(W * 0.8), int(H * 0.8))
+        mask = None
+    x0, y0, x1, y1 = bbox
+    mx, my = int((x1 - x0) * 0.12) + 4, int((y1 - y0) * 0.12) + 4
+    box = (max(0, x0 - mx), max(0, y0 - my), min(W, x1 + mx), min(H, y1 + my))
+    crop = img.crop(box)
+    scale = 1024 / max(crop.size)
+    crop = crop.resize((max(1, int(crop.width * scale)), max(1, int(crop.height * scale))), Image.LANCZOS)
+    enh = ImageOps.autocontrast(ImageOps.equalize(crop), cutoff=1).filter(ImageFilter.UnsharpMask(radius=2, percent=120))
+
+    metrics = {"stone_fraction": round(frac, 3)}
+    if mask is not None:
+        hist = h.histogram(mask)
+        n = sum(hist)
+        if n > 200:
+            import math
+            cs = sum(c * math.cos(2 * math.pi * i / 256) for i, c in enumerate(hist)) / n
+            sn = sum(c * math.sin(2 * math.pi * i / 256) for i, c in enumerate(hist)) / n
+            r = max(1e-6, min(1.0, math.hypot(cs, sn)))
+            hue_spread = math.degrees(math.sqrt(-2 * math.log(r)))
+            sst = ImageStat.Stat(s, mask)
+            metrics.update({
+                "hue_spread_deg": round(hue_spread, 1),
+                "saturation_mean": round(sst.mean[0] / 2.55, 1),
+                "saturation_spread": round(sst.stddev[0] / 2.55, 1),
+                # 1 = perfectly even colour, 0 = strongly zoned / patchy
+                "uniformity": round(max(0.0, 1 - hue_spread / 25.0) * 0.6 + max(0.0, 1 - sst.stddev[0] / 70.0) * 0.4, 2),
+            })
+
+    def enc(im, side=None):
+        if side:
+            im = im.copy()
+            im.thumbnail((side, side))
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=86)
+        return base64.b64encode(buf.getvalue()).decode()
+    return {"crop": enc(crop), "enhanced": enc(enh), "preview": enc(enh, 480), "preview_crop": enc(crop, 480),
+            "metrics": metrics}
+
+
+def expert_once(name, images, text, stop_at):
+    cfg = PROVIDERS[name]
+    caller = CALLERS[name]
+    for model in models_for(name, cfg)[:4]:
+        for key in cfg["keys"][:2]:
+            left = stop_at - time.time()
+            if left < 10:
+                return None
+            try:
+                status, out, err = caller(key, model, images[:cfg.get("max_images", 5)], text,
+                                          timeout=min(cfg.get("timeout", TIMEOUT), left - 3), system=EXPERT_PROMPT)
+            except Exception:
+                break
+            if status == 200:
+                try:
+                    j = extract_json(out)
+                    a = j.get("authenticity") or {}
+                    if not isinstance(a, dict):
+                        break
+                    j["_model"] = f"{cfg['label']} {model}"
+                    return j
+                except Exception:
+                    break
+            if status in (401, 403, 404, 400) or status >= 500:
+                break
+    return None
+
+
+def run_expert(images, text, stop_at):
+    """Second opinion focused only on natural vs synthetic, using the best model that answers."""
+    order = [p for p in ("gemini", "anthropic", "openai", "xai", "mistral", "groq", "github", "openrouter", "custom")
+             if PROVIDERS[p]["keys"]]
+    for name in order:
+        if stop_at - time.time() < 12:
+            break
+        imgs = images[:2] if PROVIDERS[name].get("compact") else images
+        res = expert_once(name, imgs, text, stop_at)
+        if res:
+            return res
+    return None
+
+
+def expert_dists(ex):
+    if not ex:
+        return None, None
+    a = ex.get("authenticity") or {}
+    pn, ps, pi = (max(0.0, to_float(a.get(k), 0)) for k in ("p_natural", "p_synthetic", "p_imitation"))
+    if pn + ps + pi <= 0:
+        v = str(a.get("verdict", "")).lower()
+        if v not in ("natural", "synthetic", "imitation", "composite"):
+            return None, None
+        pn, ps, pi = (70, 20, 10) if v == "natural" else (15, 75, 10) if v == "synthetic" else (10, 15, 75)
+    auth = {"Natural": pn, "Synthetic / lab-grown": ps, "Glass / imitation": pi}
+    hh = ex.get("heat") or {}
+    treat = None
+    if isinstance(hh, dict) and str(hh.get("verdict", "")).lower() in ("heated", "unheated"):
+        ph = max(0.0, min(100.0, to_float(hh.get("p_heated"), 50)))
+        treat = {"Unheated": 100 - ph, "Heated": ph * 0.95, "Diffusion-treated / filled": ph * 0.05 + 1}
+    return auth, treat
+
+
+def blend(parts):
+    """Weighted average of several distributions (dicts name -> percent)."""
+    out, wsum = {}, 0.0
+    for d, w in parts:
+        if not d:
+            continue
+        tot = sum(d.values()) or 1
+        for k, v in d.items():
+            out[k] = out.get(k, 0) + w * v * 100 / tot
+        wsum += w
+    return {k: v / wsum for k, v in out.items()} if wsum else {}
+
+
+def decide(manual, ok, species, authenticity, treatment, sim_or_moiss, expert, metrics):
+    """Always reach a decision on natural/synthetic and heat, and say how strong it is."""
+    m = manual or {}
+    obs = set(m.get("observations", []))
+    seen = Counter(c for r in ok for c in set(r["report"].get("visible_inclusions") or []))
+    ex_seen = set(c for c in (expert or {}).get("visible_inclusions") or [] if isinstance(c, str) and c in OBS)
+    syn_seen = {c for c in SYN_OBS if c in ex_seen or seen.get(c)}
+    nat_seen = {c for c in NAT_OBS if (c in ex_seen and seen.get(c)) or seen.get(c, 0) >= 2}
+    common = species in OFTEN_SYNTHETIC
+    basis, notes = [], []
+    a = canon(authenticity, "a") or dict(AUTH_PRIOR_COMMON if common else AUTH_PRIOR_OTHER)
+    a = {k: max(v, 1.0) for k, v in a.items()}
+
+    def bump(k, f):
+        a[k] = a.get(k, 1.0) * f
+
+    if obs & (NAT_OBS | SYN_OBS):
+        basis.append("client loupe / microscope observations")
+    if syn_seen and not (obs & NAT_OBS):
+        bump("Synthetic / lab-grown", 4); bump("Natural", 0.3)
+        basis.append("synthetic growth features visible in the images (" + ", ".join(sorted(syn_seen)).replace("_", " ") + ")")
+    if nat_seen and not (obs & SYN_OBS):
+        bump("Natural", 2.2); bump("Synthetic / lab-grown", 0.5)
+        basis.append("natural inclusions visible in the images (" + ", ".join(sorted(nat_seen)).replace("_", " ") + ")")
+    u = (metrics or {}).get("uniformity")
+    if u is not None and common:
+        if u >= 0.88 and not (nat_seen or obs & NAT_OBS):
+            bump("Synthetic / lab-grown", 1.4)
+            notes.append(f"Image analysis: very even colour (uniformity {u:.2f}), typical of synthetic material.")
+        elif u <= 0.55:
+            bump("Natural", 1.35)
+            notes.append(f"Image analysis: uneven / zoned colour (uniformity {u:.2f}), typical of natural material.")
+    cut = str((expert or {}).get("cut_style", "")).lower()
+    if cut == "native" and common:
+        bump("Natural", 1.6); bump("Synthetic / lab-grown", 0.6)
+        notes.append("Native (local) cutting style, which is typical of natural coloured stones.")
+    elif cut == "precision" and common:
+        bump("Synthetic / lab-grown", 1.2)
+        notes.append("Precision calibrated cutting, which is common for synthetic and commercial goods.")
+    L, W = m.get("length_mm"), m.get("width_mm")
+    if L and W and common:
+        if any(abs(L - cl) <= 0.1 and abs(W - cw) <= 0.1 for cl, cw in CALIBRATED):
+            bump("Synthetic / lab-grown", 1.25)
+            notes.append(f"Calibrated size {L} x {W} mm, frequent for synthetic stones.")
+    if m.get("lab_text") or m.get("spectro") or m.get("chelsea") or sim_or_moiss:
+        basis.append("instrument / laboratory data")
+    if expert:
+        basis.append("forensic image check")
+
+    auth = finish_dist(a)
+    top_a = auth[0]["name"]
+    pa = auth[0]["percent"]
+    strength = "strong" if pa >= 85 else "probable" if pa >= 65 else "indicative"
+
+    man_made = top_a in ("Synthetic / lab-grown", "Glass / imitation")
+    if man_made:
+        treat = [{"name": "Not applicable", "percent": 100.0}]
+        t_top, t_strength = "Not applicable", strength
+    else:
+        t = canon(treatment, "t")
+        if not t:
+            pr = HEAT_PRIOR.get(species, (60, 35, 5))
+            t = dict(zip(TREAT_KEYS, pr))
+        treat = finish_dist(t)
+        t_top, pt = treat[0]["name"], treat[0]["percent"]
+        has_t = bool(obs & HEAT_OBS or m.get("lab_text") or any(seen.get(c, 0) >= 2 for c in HEAT_OBS))
+        t_strength = ("strong" if pt >= 85 and has_t else "probable" if pt >= 65 else "indicative")
+    need_loupe = not (obs & (NAT_OBS | SYN_OBS) or syn_seen or nat_seen or m.get("lab_text"))
+    gate = {"auth_verdict": top_a, "auth_strength": strength, "auth_p": pa,
+            "treat_verdict": t_top, "treat_strength": t_strength,
+            "basis": basis, "notes": notes, "need_loupe": need_loupe,
+            "synthetic_process": str(((expert or {}).get("authenticity") or {}).get("synthetic_process", "")) if top_a.startswith("Synthetic") else "",
+            "features": [f for f in ((expert or {}).get("features") or []) if isinstance(f, dict)][:8],
+            "expert_reasoning": str((expert or {}).get("reasoning", ""))[:600],
+            "expert_model": (expert or {}).get("_model", ""),
+            "metrics": metrics or {}}
+    return gate, auth, treat
+
+
+# --------------------------------------------------------------------------
 # Consensus
 # --------------------------------------------------------------------------
 def merge_dist(dists, top=8):
@@ -1543,7 +1736,7 @@ def vote_interpreted(ok, key, allowed):
     return v if n * 2 >= len(vals) else None
 
 
-def build_consensus(results, manual, n_images=1, n_frames=0):
+def build_consensus(results, manual, n_images=1, n_frames=0, expert=None, metrics=None):
     ok = [r for r in results if r["ok"]]
     counts = [r["report"]["total_count"] for r in ok]
     consensus = int(round(statistics.median(counts)))
@@ -1582,6 +1775,20 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
     authenticity = merge_dist([r["report"]["authenticity"] for r in ok])
 
     lead_type = rep["identification"]["variety"] or (rep["gems"][0]["type"] if rep["gems"] else "")
+
+    # combine the AI panel with the forensic second opinion and the market prior for this material
+    sp_row = species_from_text(lead_type) or species_from_text(voted_species or "") or \
+        species_from_text(str((expert or {}).get("species_guess", "")))
+    sp_name = sp_row[0] if sp_row else ""
+    ex_a, ex_t = expert_dists(expert)
+    prior_a = AUTH_PRIOR_COMMON if sp_name in OFTEN_SYNTHETIC else AUTH_PRIOR_OTHER
+    pa_ = canon(authenticity, "a")
+    authenticity = finish_dist(blend([(ex_a, 0.65), (pa_, 0.2), (prior_a, 0.15)]) if ex_a
+                               else blend([(pa_, 0.75), (prior_a, 0.25)]))
+    pt_ = canon(treatment, "t")
+    hp_ = dict(zip(TREAT_KEYS, HEAT_PRIOR.get(sp_name, (60, 35, 5))))
+    treatment = finish_dist(blend([(ex_t, 0.45), (pt_, 0.4), (hp_, 0.15)]) if ex_t
+                            else blend([(pt_, 0.7), (hp_, 0.3)]))
 
     # fill gaps in the structured readings with what the AI understood from the free text
     manual = dict(manual or {})
@@ -1678,65 +1885,78 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
         authenticity = finish_dist(a2) if a2 else authenticity
 
     sim_or_moiss = bool(instrument.get("identity") and (instrument["identity"] in SIMULANTS or instrument["identity"] == "Moissanite"))
-    gate, authenticity, treatment = evidence_gate(manual, ok, final_species or (species_from_text(lead_type) or [""])[0],
-                                                  authenticity, treatment, sim_or_moiss)
+    species_for_gate = final_species if final_species in [x[0] for x in SPECIES] else sp_name
+    gate, authenticity, treatment = decide(manual, ok, species_for_gate, authenticity, treatment, sim_or_moiss, expert, metrics)
+    top_auth, strength = gate["auth_verdict"], gate["auth_strength"]
     gems_out = [dict(g) for g in rep["gems"]]
-    ident_ns = rep["identification"]["natural_or_synthetic"]
-    if gate["auth_status"] == "undetermined":
-        ident_ns = "Undetermined: natural or synthetic origin cannot be established without microscopic examination"
-        for g in gems_out:
-            g["authenticity"], g["authenticity_confidence"] = "cannot determine", "low"
-    if gate["treat_status"] == "undetermined":
-        for g in gems_out:
-            g["treatment"], g["treatment_confidence"] = "cannot determine", "low"
 
     def drop_claims(text, words):
-        """Remove sentences that claim natural/synthetic or heat status when the evidence does not allow it."""
+        """Remove sentences that contradict the final verdict."""
         keep = [x for x in re.split(r"(?<=[.!?])\s+", text or "")
-                if not (re.search(words, x, re.I) and not re.search(r"natural or synthetic|cannot|not determin|undetermin|requires?|recommend", x, re.I))]
+                if not (re.search(words, x, re.I) and not re.search(r"natural or synthetic|natural from synthetic|recommend", x, re.I))]
         return " ".join(keep).strip()
+
+    variety = rep["identification"]["variety"] or lead_type or "Gemstone"
+    sp_clean = re.sub(r"\s*\(.*\)$", "", species_for_gate or rep["identification"]["species"] or "")
+    process = gate.get("synthetic_process") if gate.get("synthetic_process") not in ("", "unknown", "n/a") else ""
+    word = {"strong": "", "probable": "probably ", "indicative": "most likely "}[strength]
+    if top_auth == "Natural":
+        ident_ns = f"Natural ({strength})"
+        contra = r"\bsynthetic\b|lab-grown|laboratory-grown|imitation|\bglass\b"
+        verdict_sentence = f"The stone is {word}a natural {sp_clean.lower() or 'gemstone'}"
+        tag = "likely natural"
+    elif top_auth == "Synthetic / lab-grown":
+        ident_ns = f"Synthetic{' (' + process + ')' if process else ''} ({strength})"
+        contra = r"\bnatural\b"
+        verdict_sentence = f"The stone is {word}a synthetic (laboratory-grown) {sp_clean.lower() or 'material'}{' produced by the ' + process + ' process' if process else ''}"
+        tag = "likely synthetic/lab-grown"
+    else:
+        ident_ns = f"Imitation ({strength})"
+        contra = r"\bnatural\b|\bsynthetic\b"
+        verdict_sentence = f"The stone is {word}an imitation (simulant) of {variety}"
+        tag = "likely glass or imitation"
+    conf_word = {"strong": "high", "probable": "medium", "indicative": "low"}[strength]
+    for g in gems_out:
+        g["authenticity"], g["authenticity_confidence"] = tag, conf_word
+        g["notes"] = drop_claims(g["notes"], contra)
 
     conclusion, local = rep["conclusion"], dict(rep["local"])
     comments, remarks, reasoning = rep["comments"], rep["overall_remarks"], rep["identification"]["reasoning"]
+    comments, remarks, reasoning, conclusion = (drop_claims(x, contra) for x in (comments, remarks, reasoning, conclusion))
     treat_stmt = rep["treatment_statement"]
-    if gate["auth_status"] == "undetermined":
-        claim = r"\bnatural\b|\bsynthetic\b|lab-grown|flame-fusion|verneuil"
-        comments, remarks, reasoning = (drop_claims(x, claim) for x in (comments, remarks, reasoning))
-        for g in gems_out:
-            g["notes"] = drop_claims(g["notes"], claim)
-        variety = rep["identification"]["variety"] or lead_type or "Gemstone"
-        sp = re.sub(r"\s*\(.*\)$", "", final_species or rep["identification"]["species"] or "")
-        conclusion = (f"{variety}{' (' + sp + ')' if sp and sp.lower() not in variety.lower() else ''}. "
-                      "Natural or synthetic origin could not be established from the images and data supplied: "
-                      "synthetic material of this kind has the same colour, refractive index and density. "
-                      "Microscopic examination (10x loupe or microscope) for diagnostic inclusions, or laboratory analysis, is required.")
-        local["conclusion"] = ""
-        local["reasoning"] = ""
     origin_stmt = rep["origin_statement"]
-    top_auth = authenticity[0]["name"] if authenticity else ""
-    if gate["auth_status"] == "determined" and top_auth in ("Synthetic / lab-grown", "Glass / imitation"):
-        # the evidence says man-made: no natural claims and no geographic origin
-        claim = r"\bnatural\b"
-        comments, remarks, reasoning = (drop_claims(x, claim) for x in (comments, remarks, reasoning))
-        for g in gems_out:
-            g["authenticity"], g["authenticity_confidence"] = (
-                "likely synthetic/lab-grown" if top_auth.startswith("Synthetic") else "likely glass or imitation"), "medium"
-            g["estimated_origin"], g["notes"] = [], drop_claims(g["notes"], claim)
-        if re.search(claim, conclusion, re.I) or not conclusion:
-            variety = rep["identification"]["variety"] or lead_type or "Gemstone"
-            what = "laboratory-grown (synthetic)" if top_auth.startswith("Synthetic") else "an imitation"
-            conclusion = (f"The evidence ({', '.join(gate['auth_basis']).replace('_', ' ')}) indicates {what} material "
-                          f"with the appearance of {variety}.")
-            local["conclusion"], local["reasoning"] = "", ""
+    if top_auth != "Natural":
         origin = []
-        origin_stmt = "Not applicable: the material shows features of laboratory growth or imitation."
-    elif gate["auth_status"] == "determined" and top_auth == "Natural" and re.search(r"\bsynthetic\b|lab-grown", conclusion, re.I) \
-            and not re.search(r"natural or synthetic", conclusion, re.I):
-        conclusion = drop_claims(conclusion, r"\bsynthetic\b|lab-grown")
-    if gate["treat_status"] == "undetermined":
-        treat_stmt = "Not determined on the basis of the tests performed."
-        if gate["auth_status"] != "undetermined":
-            conclusion = drop_claims(conclusion, r"\bunheated\b|\bheated\b|no indications of heat")
+        origin_stmt = "Not applicable: the material is not of natural origin."
+        treat_stmt = "Not applicable."
+        for g in gems_out:
+            g["estimated_origin"], g["treatment"], g["treatment_confidence"] = [], "not applicable", ""
+        heat_sentence = ""
+    else:
+        tv, ts = gate["treat_verdict"], gate["treat_strength"]
+        if tv == "Unheated":
+            treat_stmt = "No indications of heating." if ts == "strong" else f"No indications of heating ({ts})."
+        elif tv == "Heated":
+            treat_stmt = "Indications of heating." if ts == "strong" else f"Indications of heating ({ts})."
+        else:
+            treat_stmt = f"Indications of diffusion treatment or fracture filling ({ts})."
+        heat_sentence = " " + treat_stmt
+        heat_contra = r"\bunheated\b|no indications of heat" if tv != "Unheated" else r"\bheated\b(?<!unheated)|indications of heat"
+        conclusion = drop_claims(conclusion, heat_contra)
+        for g in gems_out:
+            g["treatment"] = {"Unheated": "likely unheated", "Heated": "likely heated"}.get(tv, "likely diffusion-treated or filled")
+            g["treatment_confidence"] = {"strong": "high", "probable": "medium", "indicative": "low"}[ts]
+    # findings: forensic observations first, then panel findings that do not contradict the verdict
+    tests_used = [{"method": "Forensic image check", "finding": str(f.get("feature", "")),
+                   "meaning": f"points to {str(f.get('points_to', '')).lower()}"} for f in gate["features"][:4] if f.get("feature")]
+    tests_used += [t for t in rep["tests_used"] if not re.search(contra, f"{t['finding']} {t['meaning']}", re.I)]
+    pct = round(gate["auth_p"])
+    conclusion = (f"{verdict_sentence} ({pct}% {strength} evidence).{heat_sentence} " + conclusion).strip()
+    if gate["need_loupe"]:
+        conclusion += " Confirmation under 10x magnification (curved striae / gas bubbles versus silk / crystals) is recommended."
+    # the client's-language summary may contradict the verdict, so it is rebuilt in the interface
+    local["conclusion"], local["reasoning"] = "", local.get("reasoning", "") if top_auth == "Natural" else ""
+    ident_ns_final = ident_ns
 
     ev = evidence_level(manual, n_images, n_frames)
     ai_conf = [r["report"]["identification"]["confidence"] for r in ok if r["report"]["identification"]["confidence"]]
@@ -1771,7 +1991,7 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
             "name_local": rep["identification"]["name_local"],
             "reasoning": reasoning,
             "group": rep["identification"]["group"],
-            "natural_or_synthetic": ident_ns,
+            "natural_or_synthetic": ident_ns_final,
             "transparency": rep["identification"]["transparency"],
             "phenomenon": rep["identification"]["phenomenon"],
             "confidence": id_conf,
@@ -1788,7 +2008,7 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
         "authenticity": authenticity,
         "visual_weight": visual,
         "instrument": instrument,
-        "tests_used": rep["tests_used"],
+        "tests_used": tests_used[:10],
         "questions": questions,
         "lab_tests": rep["lab_tests"],
         "overall_remarks": remarks,
@@ -1865,12 +2085,27 @@ def analyze():
         user_text += f" The last {n_frames} image(s) are frames taken from the client's video(s) of the stone."
     user_text += manual_to_text(manual)
 
+    # image forensics: find the stone, crop it and enhance contrast to reveal growth lines and inclusions
+    photo_count = len(images) - n_frames
+    probes = [analyse_stone(b) for b in images[:max(1, min(2, photo_count))]]
+    probes = [x for x in probes if x]
+    metrics = probes[0]["metrics"] if probes else {}
+    ex_images = []
+    for pr in probes:
+        ex_images += [pr["crop"], pr["enhanced"]]
+    ex_images += images[:3]
+    ex_text = ("Images: " + ", ".join(f"image {2 * i + 1} = cropped close-up of photo {i + 1}, image {2 * i + 2} = contrast-enhanced "
+                                       f"close-up of photo {i + 1}" for i in range(len(probes)))
+               + f", then the original photos. Colour metrics of the stone: {json.dumps(metrics)}."
+               + manual_to_text(manual))
+
     results = []
     started = time.time()
     stop_at = started + DEADLINE
-    pool = ThreadPoolExecutor(max_workers=len(active))
+    pool = ThreadPoolExecutor(max_workers=len(active) + 1)
     sets = {"full": images, "small": small}
     pending = {pool.submit(run_provider, n, sets, user_text, stop_at) for n in active}
+    expert_future = pool.submit(run_expert, ex_images, ex_text, stop_at - 4)
     grace_until = None
     try:
         while pending:
@@ -1887,9 +2122,16 @@ def analyze():
             # two good answers are enough for a consensus: don't wait long for slow models
             if grace_until is None and sum(1 for r in results if r["ok"]) >= 2:
                 grace_until = time.time() + GRACE
+        # give the forensic check a little more time if it is still running
+        if not expert_future.done():
+            wait([expert_future], timeout=max(0, min(stop_at, time.time() + GRACE) - time.time()))
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
     waited = round(time.time() - started)
+    try:
+        expert = expert_future.result(timeout=0) if expert_future.done() else None
+    except Exception:
+        expert = None
 
     answered = {r["provider"] for r in results}
     for n in active:
@@ -1912,7 +2154,14 @@ def analyze():
                 "Please wait one minute and press Analyze again. ") if busy else "All AI models failed. "
         return jsonify(error=head + "Details: " + detail, panel=panel, busy=busy), 503 if busy else 502
 
-    report = build_consensus(results, manual, len(images), n_frames)
+    panel.append({"provider": "forensic", "label": "Forensic check", "model": (expert or {}).get("_model", "-"),
+                  "ok": bool(expert), "count": None,
+                  "species": str(((expert or {}).get("authenticity") or {}).get("verdict", "")).capitalize(),
+                  "error": "" if expert else "no forensic answer in time", "seconds": None})
+    report = build_consensus(results, manual, len(images), n_frames, expert, metrics)
+    if probes:
+        report["closeup"] = {"crop": "data:image/jpeg;base64," + probes[0]["preview_crop"],
+                             "enhanced": "data:image/jpeg;base64," + probes[0]["preview"]}
     report["lang"] = lang_code
     report["report_no"] = "YGL-" + time.strftime("%Y%m%d-%H%M%S") + f"-{random.randint(100, 999)}"
     return jsonify(report=report, panel=panel)
