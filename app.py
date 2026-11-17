@@ -78,7 +78,8 @@ PROVIDERS = {
         "label": "Gemini",
         "keys": env_keys("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY"),
         "models": model_list("GEMINI_MODEL", "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.5-flash"),
-        "max_images": 10,
+        "max_images": 8,
+        "timeout": 45,
     },
     "anthropic": {
         "label": "Claude",
@@ -89,10 +90,11 @@ PROVIDERS = {
     "groq": {
         "label": "Groq",
         "keys": env_keys("GROQ_API_KEYS", "GROQ_API_KEY"),
-        "models": model_list("GROQ_MODEL", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct",
-                             "meta-llama/llama-4-maverick-17b-128e-instruct"),
-        "max_images": 3,
+        # llama-4-scout has the largest free token-per-minute allowance, so it goes first
+        "models": model_list("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"),
+        "max_images": 2,
         "timeout": 40,
+        "compact": True,
     },
     "xai": {
         "label": "xAI Grok",
@@ -119,16 +121,18 @@ PROVIDERS = {
         "keys": env_keys("OPENROUTER_API_KEYS", "OPENROUTER_API_KEY"),
         "models": model_list("OPENROUTER_MODEL"),
         "try_all_models": True,
-        "max_images": 3,
+        "max_images": 2,
         "timeout": 30,
+        "compact": True,
     },
     "github": {
         "label": "GitHub Models",
         "keys": env_keys("GITHUB_MODELS_TOKENS", "GITHUB_MODELS_TOKEN", "GITHUB_TOKEN"),
         "models": model_list("GITHUB_MODEL", "openai/gpt-4.1-mini", "openai/gpt-4o-mini"),
         "try_all_models": True,
-        "max_images": 6,
+        "max_images": 4,
         "timeout": 40,
+        "compact": True,
     },
     "custom": {
         # any OpenAI-compatible service (Together, NVIDIA NIM, Fireworks, DeepInfra ...)
@@ -423,6 +427,18 @@ HONESTY RULES:
 - Photos alone can never prove origin, heat treatment or natural/synthetic status. Calibrate your confidence to the evidence actually available and never claim certainty you do not have. Name exactly which test would settle each open question, and use "not determined" wording in treatment_statement and origin_statement when the evidence is insufficient.
 - If the images contain no gemstones, return total_count 0, empty lists, and explain in overall_remarks.
 """
+
+COMPACT_PROMPT = """You are a senior gemmologist. Inspect the gemstone photo(s) plus the client's test data and return ONLY one JSON object:
+{"image_quality":"good|fair|poor","total_count":<int>,"count_confidence":"low|medium|high","stone_points":[{"x":0-1,"y":0-1}],
+"identification":{"species":"","variety":"","group":"","natural_or_synthetic":"Natural|Synthetic (process)|Imitation (material)|Composite|Undetermined","transparency":"","phenomenon":"none|asterism|chatoyancy|colour change|play of colour|adularescence|...","confidence_percent":<0-100>,"reasoning":""},
+"gems":[{"id":1,"type":"","color":"","shape_cut":"","estimated_origin":[""],"origin_confidence":"low|medium|high","authenticity":"likely natural|likely synthetic/lab-grown|likely glass or imitation|cannot determine","authenticity_confidence":"low|medium|high","treatment":"likely unheated|likely heated|likely diffusion-treated or filled|cannot determine","treatment_confidence":"low|medium|high","treatment_indicators":"","notes":""}],
+"lot_origin_probabilities":[{"country":"","percent":0}],"lot_treatment_probabilities":[{"status":"Unheated|Heated|Diffusion-treated / filled","percent":0}],
+"lot_authenticity_probabilities":[{"status":"Natural|Synthetic / lab-grown|Glass / imitation","percent":0}],
+"interpreted_tests":{"polariscope":"SR|DR|AGG|ADR|unknown","optic_figure":"uniaxial|biaxial|none|unknown","pleochroism":"none|dichroic|trichroic|unknown","chelsea":"none|red|pink|green|other|unknown","ri":"","sg":""},
+"tests_used":[{"method":"","finding":"","meaning":""}],"treatment_statement":"","origin_statement":"","comments":"","recommended_lab_tests":[""],"overall_remarks":"","conclusion":"",
+"client_language":{"name":"","reasoning":"","conclusion":""},
+"follow_up_questions":[{"id":"q1","question":"","why":"","options":[""]}]}
+Rules: write everything in formal British English EXCEPT client_language and follow_up_questions, which use the REPORT LANGUAGE. Each probability list adds up to 100. Trust the client's RI/SG/instrument readings over the photo; the client may write in any language. Consider every gem species, synthetics, simulants and composites. Use only realistic origin countries. Ask 3-5 follow-up questions with short answer options (include "not tested"). Photos cannot prove origin or treatment: keep confidence honest and say which lab test would settle it."""
 
 USER_PROMPT = "Inspect the gemstone images ({n} image(s), image 1 = main photo) and return the JSON report. REPORT LANGUAGE: {lang}."
 
@@ -1111,16 +1127,31 @@ def models_for(name, cfg):
     return models
 
 
+_no_thinking_cfg = set()
+
+
 def call_gemini(key, model, images, user_text, timeout=TIMEOUT, system=SYSTEM_PROMPT):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     parts = [{"text": user_text}] + [{"inlineData": {"mimeType": "image/jpeg", "data": b}} for b in images]
+    gen = {"temperature": 0.2, "maxOutputTokens": 16000, "responseMimeType": "application/json"}
+    if model not in _no_thinking_cfg:
+        if re.search(r"2\.5", model):
+            gen["thinkingConfig"] = {"thinkingBudget": 0 if "lite" in model else 1024}
+        else:
+            gen["thinkingConfig"] = {"thinkingLevel": "low"}
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 20000, "responseMimeType": "application/json"},
+        "generationConfig": gen,
     }
+    t0 = time.time()
     r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                       json=body, timeout=timeout)
+    if r.status_code == 400 and "thinking" in r.text.lower() and "thinkingConfig" in gen:
+        _no_thinking_cfg.add(model)
+        gen.pop("thinkingConfig")
+        r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+                          json=body, timeout=max(5, timeout - (time.time() - t0)))
     if r.status_code != 200:
         return r.status_code, "", err_text(r)
     parts = r.json()["candidates"][0]["content"]["parts"]
@@ -1299,14 +1330,19 @@ def image_limit(err):
     return None
 
 
-def run_provider(name, images, user_text, stop_at=None):
+def run_provider(name, image_sets, user_text, stop_at=None):
     """Try every model and key of one provider until one answers.
 
     Busy / rate-limited / server errors move on to the next key and then the next model,
     an image-count limit is obeyed automatically, and a bad key is skipped for later models."""
     cfg = PROVIDERS[name]
     caller = CALLERS[name]
+    if isinstance(image_sets, dict):
+        images = image_sets["small" if cfg.get("compact") else "full"]
+    else:
+        images = image_sets
     images = images[:cfg.get("max_images", 5)]
+    system = COMPACT_PROMPT if cfg.get("compact") else SYSTEM_PROMPT
     started = time.time()
     stop_at = stop_at or started + DEADLINE
     keys = cfg["keys"][:]
@@ -1340,7 +1376,7 @@ def run_provider(name, images, user_text, stop_at=None):
                     return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
                             "error": summary(), "ms": int((time.time() - started) * 1000)}
                 try:
-                    status, text, err = caller(key, model, images, user_text, timeout=min(per_call, left - 2))
+                    status, text, err = caller(key, model, images, user_text, timeout=min(per_call, left - 2), system=system)
                 except requests.exceptions.JSONDecodeError:
                     last_err = "the service sent a non-JSON reply: the key/token is probably wrong or has no access"
                     bad_keys.add(key)
@@ -1370,14 +1406,16 @@ def run_provider(name, images, user_text, stop_at=None):
                 if lim and lim < len(images) and tries < 3:
                     images = images[:lim]  # obey the model's image limit and ask again
                     continue
-                if status in RETRYABLE and tries < 2 and stop_at - time.time() > 20:
-                    time.sleep(2.0)  # short back-off, then one more try with the same key
+                too_big = status in (413, 429) and re.search(r"too large|tokens per|request size|payload", err or "", re.I)
+                if too_big and tries < 3 and (system is not COMPACT_PROMPT or len(images) > 1):
+                    system = COMPACT_PROMPT  # shrink the request and ask again
+                    images = images[:1]
                     continue
                 if status in (401, 403) or re.search(r"api key not valid|invalid api key|invalid_api_key", err or "", re.I):
                     bad_keys.add(key)
                 break
-            if last_err.startswith(("404", "400")):
-                break  # this model does not exist or refuses the request: go to the next model
+            if last_err.startswith(("404", "400", "500", "502", "503", "504", "529")) or "timed out" in last_err:
+                break  # missing, refused, overloaded or too slow: go to the next model
         if keys and all(k in bad_keys for k in keys):
             break
     return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
@@ -1663,10 +1701,12 @@ def analyze():
     if not files:
         return jsonify(error="No image was received."), 400
     side = 1600 if len(files) <= 2 else 1280 if len(files) <= 4 else 1024
-    images = []
+    images, small = [], []
     for f in files:
         try:
             images.append(prepare_image(f, side))
+            f.stream.seek(0)
+            small.append(prepare_image(f, 768))
         except Exception:
             pass
     if not images:
@@ -1685,7 +1725,8 @@ def analyze():
     started = time.time()
     stop_at = started + DEADLINE
     pool = ThreadPoolExecutor(max_workers=len(active))
-    pending = {pool.submit(run_provider, n, images, user_text, stop_at) for n in active}
+    sets = {"full": images, "small": small}
+    pending = {pool.submit(run_provider, n, sets, user_text, stop_at) for n in active}
     grace_until = None
     try:
         while pending:
