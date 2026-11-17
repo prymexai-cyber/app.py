@@ -54,8 +54,8 @@ langSel.value = lang;
 langSel.addEventListener('change', () => setLang(langSel.value));
 
 /* ---------------- theme ---------------- */
-const SUN='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
-const MOON='<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
+const SUN='<circle class="i2" cx="12" cy="12" r="4"/><path class="i1" d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+const MOON='<path class="i1" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/><path class="i2" d="M17 4v3M15.5 5.5h3"/>';
 function isDark(){
   const t = document.documentElement.getAttribute('data-theme');
   if(t) return t==='dark';
@@ -194,6 +194,7 @@ const SHAPES = [['round','sh_round'],['oval','sh_oval'],['cushion','sh_cushion']
 const UV = [['none','uv_none'],['weak','uv_weak'],['red','uv_red'],['orange','uv_orange'],['yellow','uv_yellow'],['green','uv_green'],['blue','uv_blue'],['white / chalky','uv_white'],['other','uv_other']];
 const OBS = ['silk_intact','silk_broken','discoid','pits','fingerprints','mineral_crystals','zoning_angular','three_phase','horsetail','lily_pad',
   'curved_striae','plato_lines','chevron','nailhead','flux','bubbles','swirl','chips','doubling','very_clean','uniform_color','flash_effect','edge_color','glass_filled'];
+const PHEN = ['asterism','chatoyancy','colour_change','play_of_colour','adularescence','labradorescence','aventurescence','iridescence'];
 const SPEC = ['chromium','iron_450','cobalt','rare_earth','zircon_653','almandine','none_seen'];
 
 function fillSelect(id, opts, withNone=true){
@@ -220,10 +221,13 @@ function buildForm(){
   fillSelect('m_fig', [['uniaxial','fig_uniaxial'],['biaxial','fig_biaxial'],['none','fig_none']]);
   fillSelect('m_pleo', [['none','pleo_none'],['dichroic','pleo_dichroic'],['trichroic','pleo_trichroic']]);
   fillSelect('m_chelsea', [['none','ch_none'],['red','ch_red'],['pink','ch_pink'],['green','ch_green'],['other','ch_other']]);
+  fillSelect('m_sign', [['+','sign_pos'],['-','sign_neg']]);
+  fillSelect('m_magnet', [['none','mag_none'],['weak','mag_weak'],['strong','mag_strong']]);
   fillSelect('m_uvl', UV); fillSelect('m_uvs', UV);
   fillChoice('polChoice','radio','pol', [['','not_tested'],['SR','pol_SR'],['DR','pol_DR'],['AGG','pol_AGG'],['ADR','pol_ADR']]);
   if(!document.querySelector('#polChoice input:checked')) document.querySelector('#polChoice input').checked = true;
   fillChoice('specChoice','checkbox','spec', SPEC.map(s=>[s,'sp_'+s]));
+  fillChoice('phenChoice','checkbox','phen', PHEN.map(p=>[p,'phen_'+p]));
   fillChoice('obsChoice','checkbox','obs', OBS.map(o=>[o,'obs_'+o]));
   formBuilt=true; updateFilled();
 }
@@ -232,7 +236,8 @@ function collectManual(){
   return {claim:v('m_claim'), weight_ct:v('m_weight'), shape:v('m_shape'), length_mm:v('m_l'), width_mm:v('m_w'), depth_mm:v('m_d'),
     ri:v('m_ri'), biref:v('m_biref'), sg:v('m_sg'), thermal:v('m_thermal'), moissanite:v('m_moiss'),
     polariscope:(document.querySelector('#polChoice input:checked')||{}).value||'',
-    optic_figure:v('m_fig'), pleochroism:v('m_pleo'), chelsea:v('m_chelsea'), uv_long:v('m_uvl'), uv_short:v('m_uvs'),
+    optic_figure:v('m_fig'), optic_sign:v('m_sign'), magnet:v('m_magnet'),
+    phenomena:[...document.querySelectorAll('#phenChoice input:checked')].map(i=>i.value), pleochroism:v('m_pleo'), chelsea:v('m_chelsea'), uv_long:v('m_uvl'), uv_short:v('m_uvs'),
     spectro:[...document.querySelectorAll('#specChoice input:checked')].map(i=>i.value),
     observations:[...document.querySelectorAll('#obsChoice input:checked')].map(i=>i.value),
     free_text:v('m_free'), lab_text:v('m_lab'), answers:collectAnswers()};
@@ -241,7 +246,7 @@ function updateFilled(){
   const m=collectManual();
   const cnt={basic:[m.claim,m.weight_ct,m.length_mm,m.width_mm,m.depth_mm].filter(Boolean).length,
     ri:[m.ri,m.biref,m.sg,m.thermal,m.moissanite].filter(Boolean).length,
-    pol:[m.polariscope,m.optic_figure,m.pleochroism,m.chelsea,m.uv_long,m.uv_short].filter(Boolean).length+m.spectro.length,
+    pol:[m.polariscope,m.optic_figure,m.optic_sign,m.magnet,m.pleochroism,m.chelsea,m.uv_long,m.uv_short].filter(Boolean).length+m.spectro.length+m.phenomena.length,
     obs:m.observations.length, lab:m.lab_text?1:0};
   document.querySelectorAll('.filled').forEach(n=>{ const c=cnt[n.dataset.for]; n.textContent=c?('✓ '+c):''; });
 }
@@ -355,33 +360,38 @@ const PAL={blue:'#2347B5',red:'#C0233F',green:'#12906A',yellow:'#E2B007',orange:
   'නිල්':'#2347B5','රතු':'#C0233F','කොළ':'#12906A','කහ':'#E2B007','රෝස':'#E06FA0','நீல':'#2347B5','சிவப்':'#C0233F','பச்சை':'#12906A','மஞ்சள்':'#E2B007'};
 const dot = n => { n=String(n||'').toLowerCase(); for(const k in PAL) if(n.includes(k)) return PAL[k]; return '#8A94A0'; };
 const fmtDate = iso => new Date(iso||Date.now()).toLocaleString(lang==='en'?undefined:lang);
-function readingRows(r){
+const E = k => I18N.en[k] ?? k;   /* report PDF / print is always English */
+const UVK = {'none':'uv_none','weak':'uv_weak','red':'uv_red','orange':'uv_orange','yellow':'uv_yellow','green':'uv_green','blue':'uv_blue','white / chalky':'uv_white','other':'uv_other'};
+function readingRows(r, t=T){
   const rd = r.instrument?.readings || {}, rows=[];
-  const sel = (id,v) => { const o=[...$(id).options].find(o=>o.value===v); return o?o.textContent:v; };
-  if(rd.ri) rows.push(['RI', rd.ri[0]===rd.ri[1]? rd.ri[0] : rd.ri[0]+' – '+rd.ri[1]]);
+  const rng = (a,d) => a[0]===a[1] ? Number(a[0]).toFixed(d) : Number(a[0]).toFixed(d)+' – '+Number(a[1]).toFixed(d);
+  if(rd.ri) rows.push([t('f_ri').replace(/\s*\(RI\)/,'')+' (RI)', rng(rd.ri,3)]);
   if(rd.ri_otl) rows.push(['RI','OTL (> 1.81)']);
-  if(rd.biref!=null) rows.push(['BR', rd.biref]);
-  if(rd.sg) rows.push(['SG', rd.sg[0]===rd.sg[1]? rd.sg[0] : rd.sg[0]+' – '+rd.sg[1]]);
-  if(rd.polariscope) rows.push([T('f_pol'), T('pol_'+rd.polariscope)]);
-  if(rd.optic_figure) rows.push([T('f_fig'), T('fig_'+rd.optic_figure)]);
-  if(rd.pleochroism) rows.push([T('f_pleo'), T('pleo_'+rd.pleochroism)]);
-  if(rd.chelsea) rows.push([T('f_chelsea'), T('ch_'+rd.chelsea)]);
-  if(rd.spectro) rows.push([T('f_spec'), rd.spectro.map(s=>T('sp_'+s)).join(', ')]);
-  if(rd.uv_long) rows.push([T('f_uvl'), sel('m_uvl',rd.uv_long)]);
-  if(rd.uv_short) rows.push([T('f_uvs'), sel('m_uvs',rd.uv_short)]);
-  if(rd.thermal!=null) rows.push([T('f_thermal'), rd.thermal+' / 8']);
-  if(rd.moissanite) rows.push([T('f_moiss'), T(rd.moissanite==='yes'?'moiss_yes':'moiss_no')]);
+  if(rd.biref!=null) rows.push([t('f_biref').replace(/\s*\(BR\)/,'')+' (BR)', Number(rd.biref).toFixed(3)]);
+  if(rd.sg) rows.push([t('f_sg').replace(/\s*\(SG\)/,'')+' (SG)', rng(rd.sg,2)]);
+  if(rd.polariscope) rows.push([t('f_pol'), t('pol_'+rd.polariscope)]);
+  if(rd.optic_figure) rows.push([t('f_fig'), t('fig_'+rd.optic_figure)]);
+  if(rd.optic_sign) rows.push([t('f_sign'), t(rd.optic_sign==='+'?'sign_pos':'sign_neg')]);
+  if(rd.pleochroism) rows.push([t('f_pleo'), t('pleo_'+rd.pleochroism)]);
+  if(rd.chelsea) rows.push([t('f_chelsea'), t('ch_'+rd.chelsea)]);
+  if(rd.spectro) rows.push([t('f_spec'), rd.spectro.map(s=>t('sp_'+s)).join(', ')]);
+  if(rd.uv_long) rows.push([t('f_uvl'), t(UVK[rd.uv_long]||rd.uv_long)]);
+  if(rd.uv_short) rows.push([t('f_uvs'), t(UVK[rd.uv_short]||rd.uv_short)]);
+  if(rd.magnet) rows.push([t('f_magnet'), t('mag_'+rd.magnet)]);
+  if(rd.phenomena) rows.push([t('f_phen'), rd.phenomena.map(p=>t('phen_'+p)).join(', ')]);
+  if(rd.thermal!=null) rows.push([t('f_thermal'), rd.thermal+' / 8']);
+  if(rd.moissanite) rows.push([t('f_moiss'), t(rd.moissanite==='yes'?'moiss_yes':'moiss_no')]);
   return rows;
 }
-function weightInfo(r){
+function weightInfo(r, t=T){
   const w=r.instrument?.weight, rd=r.instrument?.readings||{}, out=[];
-  if(w?.measured_ct) out.push([T('r_measured'), w.measured_ct+' ct']);
-  if(w?.estimated_ct) out.push([T('r_from_size'), `≈ ${w.estimated_ct} ct (${w.low}–${w.high})`]);
-  if(rd.length_mm && rd.width_mm && rd.depth_mm) out.push([T('f_l').replace(/\s*\(.*/,'')+' × '+T('f_w').replace(/\s*\(.*/,'')+' × '+T('f_d').replace(/\s*\(.*/,''), `${rd.length_mm} × ${rd.width_mm} × ${rd.depth_mm} mm`]);
-  if(!out.length && r.visual_weight) out.push([T('r_photo_weight'), `${r.visual_weight.min_ct} – ${r.visual_weight.max_ct} ct`]);
+  if(w?.measured_ct) out.push([t('r_measured'), Number(w.measured_ct).toFixed(2)+' ct']);
+  if(w?.estimated_ct) out.push([t('r_from_size'), `≈ ${w.estimated_ct} ct (${w.low}–${w.high})`]);
+  if(rd.length_mm && rd.width_mm && rd.depth_mm) out.push([t('f_l').replace(/\s*\(.*/,'')+' × '+t('f_w').replace(/\s*\(.*/,'')+' × '+t('f_d').replace(/\s*\(.*/,''), `${rd.length_mm} × ${rd.width_mm} × ${rd.depth_mm} mm`]);
+  if(!out.length && r.visual_weight) out.push([t('r_photo_weight'), `${r.visual_weight.min_ct} – ${r.visual_weight.max_ct} ct`]);
   return out;
 }
-function idName(r){ const id=r.identification||{}; return id.name_local || id.variety || id.species || '-'; }
+function idName(r){ const id=r.identification||{}; return (lang!=='en' && id.name_local) || id.variety || id.species || '-'; }
 
 /* ---------------- markers ---------------- */
 function drawMarkers(){
@@ -412,6 +422,7 @@ let renderedFor=null;
 function renderReport(data){
   const r=data.report, panel=data.panel||[], id=r.identification||{}, ev=r.evidence||{}, inst=r.instrument||{};
   const firstImg = ordered()[0]?.url || '';
+  const locReason = lang!=='en' ? (r.local?.reasoning||'') : '', locConcl = lang!=='en' ? (r.local?.conclusion||'') : '';
   const topAuth=(r.authenticity||[])[0], topTreat=(r.treatment||[])[0], topOrigin=(r.origin||[])[0];
   const fromText = inst.from_text && Object.keys(inst.from_text).length
     ? `<p class="meta">${esc(T('r_from_text'))}: ${Object.entries(inst.from_text).map(([k,v])=>esc(k+': '+(Array.isArray(v)?v.join('–'):v))).join(' · ')}</p>` : '';
@@ -457,7 +468,7 @@ function renderReport(data){
           <span class="pill ${id.source==='instruments'?'ok':'acc'}">${esc(id.source==='instruments'?T('r_by_inst'):T('r_by_ai',{a:id.panel_agreement||''}))}</span>
           <span class="pill ${({A:'ok',B:'ok',C:'warn',D:'bad'})[ev.level]||'neutral'}">${esc(T('r_evidence'))}: ${esc(T('ev_'+ev.level))}</span>
         </div>
-        ${id.reasoning?`<p style="margin:8px 0 0">${esc(id.reasoning)}</p>`:''}
+        ${(locReason||id.reasoning)?`<p style="margin:8px 0 0">${esc(locReason||id.reasoning)}</p>`:''}
         ${fromText}
       </div>
     </div>
@@ -468,7 +479,8 @@ function renderReport(data){
       <div class="box"><h3>${esc(T('r_origin'))}</h3><div class="verdict">${esc(topOrigin?topOrigin.name:'-')}</div>${bars(r.origin,false)}</div>
     </div>
 
-    ${r.conclusion?`<div class="sec"><h3>${esc(T('r_conclusion'))}</h3><div class="conclusion">${esc(r.conclusion)}</div></div>`:''}
+    ${(locConcl||r.conclusion)?`<div class="sec"><h3>${esc(T('r_conclusion'))}</h3><div class="conclusion">${esc(locConcl||r.conclusion)}</div>
+      ${(r.treatment_statement||r.origin_statement)?`<p class="meta" style="margin:8px 0 0">${esc([r.treatment_statement,r.origin_statement].filter(Boolean).join(' '))}</p>`:''}</div>`:''}
     ${conflicts}
 
     <div class="sec">
@@ -510,48 +522,78 @@ function renderReport(data){
   renderedFor=data;
 }
 
-/* ---------------- one-page PDF ---------------- */
-const LOGO='<svg viewBox="0 0 64 64"><polygon points="32,4 56,22 32,60 8,22" fill="none" stroke="#2347B5" stroke-width="3.5" stroke-linejoin="round"/><polyline points="8,22 56,22" fill="none" stroke="#2347B5" stroke-width="3"/><polyline points="22,22 32,4 42,22 32,60 22,22" fill="none" stroke="#2347B5" stroke-width="2" stroke-linejoin="round"/></svg>';
-function onePageHtml(data){
-  const r=data.report, id=r.identification||{}, ev=r.evidence||{};
+/* ---------------- one-page English report (PDF + print) ---------------- */
+const LOGO='<svg viewBox="0 0 64 64" fill="none" stroke-linejoin="round" stroke-linecap="round"><path d="M20 14h24l12 12H8z" fill="#0E9F6E" opacity=".14"/><path stroke="#16325F" stroke-width="3.2" d="M20 14h24l12 12-24 32L8 26z"/><path stroke="#16325F" stroke-width="2.4" d="M8 26h48"/><path stroke="#0E9F6E" stroke-width="2" d="M8 26 20 14l6 12 6-12 6 12 6-12 12 12M26 26l6 32 6-32M17 26l15 32 15-32"/><path fill="#0E9F6E" d="M53 2.5l1.7 4.8 4.8 1.7-4.8 1.7L53 15.5l-1.7-4.8L46.5 9l4.8-1.7z"/></svg>';
+const ENUM_EN = {'unheated':'Unheated','heated':'Heated','diffusion-treated / filled':'Diffusion-treated / filled','natural':'Natural','synthetic / lab-grown':'Synthetic / lab-grown','glass / imitation':'Glass / imitation'};
+const cap = s => { s=String(s||'').trim(); return s ? s[0].toUpperCase()+s.slice(1) : ''; };
+function getClient(){
+  const name=$('c_name').value.trim(), phone=$('c_phone').value.trim(), email=$('c_email').value.trim();
+  $('c_name').classList.toggle('bad', !name);
+  $('c_email').classList.toggle('bad', !!email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+  if(!name){ showError(T('need_cname')); $('c_name').focus(); return null; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showError(T('bad_email')); $('c_email').focus(); return null; }
+  clearError();
+  return {name, phone, email};
+}
+function onePageHtml(data, client){
+  const r=data.report, ev=r.evidence||{};
+  const id=Object.assign({}, r.identification||{}); id.species=String(id.species||'').replace(/\s*\(.*\)\s*$/,'');
   const g0=(r.gems||[])[0]||{};
-  const pct = l => l&&l.length ? `${esc(tn(l[0].name))} (${Math.round(l[0].percent)}%)` : '-';
-  const origins = (r.origin||[]).filter(o=>o.name!=='Other').slice(0,3).map(o=>`${esc(o.name)} ${Math.round(o.percent)}%`).join(', ') || '-';
+  const est = l => (l||[]).filter(x=>x.name!=='Other').slice(0,3).map(x=>`${esc(ENUM_EN[String(x.name).toLowerCase()]||x.name)} ${Math.round(x.percent)}%`).join(' · ');
+  const top = l => l&&l.length ? (ENUM_EN[String(l[0].name).toLowerCase()]||l[0].name) : '';
   const imgs = ordered().slice(0,5).map(m=>`<img src="${m.url}" alt="">`).join('');
-  const idRows = [
-    [T('r_species'), id.species||'-'], [T('r_variety'), idName(r)], [T('r_auth'), null, pct(r.authenticity)],
-    [T('r_treat'), null, pct(r.treatment)], [T('r_origin'), null, origins],
-    [T('p_colour'), g0.color||'-'], [T('p_shape'), g0.shape_cut||'-'], [T('p_count'), String(r.consensus_count??'-')]
+  const wi = weightInfo(r,E), rd = readingRows(r,E);
+  const weight = wi.find(w=>w[0]===E('r_measured'))?.[1] || wi.find(w=>w[0]===E('r_from_size'))?.[1] || wi.find(w=>w[0]===E('r_photo_weight'))?.[1] || '';
+  const meas = wi.find(w=>/mm$/.test(w[1]))?.[1] || '';
+  const desc = [
+    [E('pdf_weight'), weight], [E('pdf_meas'), meas], [E('p_shape'), cap(g0.shape_cut)], [E('p_colour'), cap(g0.color)],
+    [E('pdf_transp'), cap(id.transparency)], [E('pdf_phen'), id.phenomenon && !/^none$/i.test(id.phenomenon) ? cap(id.phenomenon) : ''],
+    [E('pdf_count'), r.consensus_count>1 ? String(r.consensus_count) : '']
+  ].filter(x=>x[1]);
+  const identLine = id.natural_or_synthetic || top(r.authenticity) || 'Undetermined';
+  const results = [
+    [E('r_species'), esc(id.species||'-')],
+    [E('r_variety'), esc(id.variety||'-')],
+    ...(id.group?[[E('pdf_group'), esc(id.group)]]:[]),
+    [E('pdf_ident'), `${esc(cap(identLine))}<small>${esc(E('pdf_estimate'))}: ${est(r.authenticity)||'-'}</small>`],
+    [E('pdf_treat'), `${esc(r.treatment_statement || top(r.treatment) || 'Not determined')}<small>${esc(E('pdf_estimate'))}: ${est(r.treatment)||'-'}</small>`],
+    [E('pdf_origin'), `${esc(r.origin_statement || top(r.origin) || 'Not determined')}<small>${esc(E('pdf_estimate'))}: ${est(r.origin)||'-'}</small>`],
   ];
-  const tr = rows => rows.map(([a,b,html])=>`<tr><td>${esc(a)}</td><td>${html!=null?html:esc(b)}</td></tr>`).join('');
-  const rd=readingRows(r), wi=weightInfo(r);
+  const tr = rows => rows.map(([a,b])=>`<tr><td>${esc(a)}</td><td>${b}</td></tr>`).join('');
+  const half = Math.ceil(rd.length/2);
+  const testsHtml = rd.length ? `<h4>${esc(E('pdf_tests'))}</h4><div class="ptests"><table>${tr(rd.slice(0,half).map(([a,b])=>[a,esc(b)]))}</table><table>${tr(rd.slice(half).map(([a,b])=>[a,esc(b)]))}</table></div>` : '';
   const findings=(r.tests_used||[]).slice(0,5).map(t=>`<li><b>${esc(t.method)}:</b> ${esc(t.finding)}${t.meaning?' – '+esc(t.meaning):''}</li>`).join('');
   const labs=(r.lab_tests||[]).slice(0,3).map(t=>`<li>${esc(t)}</li>`).join('');
   const conflicts=(r.instrument?.conflicts||[]).slice(0,2).map(c=>`<li>${esc(c)}</li>`).join('');
+  const comment=[r.comments, r.conclusion].filter(Boolean).join(' ');
+  const date=new Date(data.when||Date.now()).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const basis=`${E('pdf_ai')} of ${r.images} image${r.images>1?'s':''}${r.video_frames?` (incl. ${r.video_frames} video frames)`:''}${(ev.have||[]).filter(c=>!['photos','views'].includes(c)).length?' and '+(ev.have||[]).filter(c=>!['photos','views'].includes(c)).map(c=>E('ev_'+c).toLowerCase()).join(', '):''}.`;
   return `<div class="a4" id="a4">
     <div class="ph">
-      <div class="pbrand">${LOGO}<div><div class="pname">YASIRU GEMS LAB</div><div class="psub">${esc(T('p_sub'))}</div></div></div>
-      <div class="pmeta">${esc(T('r_report_no'))}: <b>${esc(r.report_no)}</b><br>${esc(T('r_date'))}: <b>${esc(fmtDate(data.when))}</b><br>Yasiru Gems &amp; Jewellery</div>
+      <div class="pbrand">${LOGO}<div><div class="pname">YASIRU GEMS LAB</div><div class="psub">Gem testing &amp; analysis</div></div></div>
+      <div class="pdoc"><div class="serif">${esc(E('pdf_title'))}</div><div>No. <b>${esc(r.report_no)}</b> &nbsp;·&nbsp; ${esc(date)}</div></div>
     </div>
-    <div class="ptitle">${esc(idName(r))}<small>${esc(id.species||'')}${id.variety&&id.variety!==idName(r)?' · '+esc(id.variety):''}</small></div>
+    <div class="pclient"><div><span>${esc(E('pdf_issued'))}</span><b>${esc(client.name)}</b></div>${client.phone?`<div><span>${esc(E('pdf_tel'))}</span>${esc(client.phone)}</div>`:''}${client.email?`<div><span>${esc(E('pdf_email'))}</span>${esc(client.email)}</div>`:''}</div>
+    <div class="ptitle serif">${esc(id.variety||id.species||'Gemstone')}</div>
+    <div class="ptsub">${esc([id.species, id.group].filter(Boolean).join(' · '))}</div>
     <div class="pgrid">
       <div>
         <div class="pphotos">${imgs}</div>
-        <div class="pconf"><div><b>${id.confidence||0}%</b>${esc(T('r_confidence'))}</div><div><b>${esc(ev.level||'-')}</b>${esc(T('r_evidence'))}</div></div>
+        <div class="pconf"><div><b>${id.confidence||0}%</b>${esc(E('r_confidence'))}</div><div><b>${esc(ev.level||'-')}</b>${esc(E('r_evidence'))}</div></div>
       </div>
       <div>
-        <h4 style="margin-top:0">${esc(T('r_ident'))}</h4>
-        <table>${tr(idRows)}</table>
-        ${wi.length?`<h4>${esc(T('p_measure'))}</h4><table>${tr(wi)}</table>`:''}
-        ${rd.length?`<h4>${esc(T('p_testdata'))}</h4><table>${tr(rd.slice(0,9))}</table>`:''}
+        ${desc.length?`<h4>${esc(E('pdf_desc'))}</h4><table>${tr(desc.map(([a,b])=>[a,esc(b)]))}</table>`:''}
+        <h4>${esc(E('pdf_results'))}</h4><table>${tr(results)}</table>
       </div>
     </div>
-    ${r.conclusion?`<h4>${esc(T('r_conclusion'))}</h4><div class="pconcl">${esc(r.conclusion)}</div>`:''}
+    ${testsHtml}
+    ${comment?`<h4>${esc(E('pdf_comments'))}</h4><p class="pcomm">${esc(comment)}</p>`:''}
     <div class="pcols">
-      ${findings?`<div><h4>${esc(T('p_keyfind'))}</h4><ul>${findings}</ul></div>`:''}
-      <div>${conflicts?`<h4>${esc(T('r_conflicts'))}</h4><ul>${conflicts}</ul>`:''}${labs?`<h4>${esc(T('r_labtests'))}</h4><ul>${labs}</ul>`:''}</div>
+      ${findings?`<div><h4>${esc(E('p_keyfind'))}</h4><ul>${findings}</ul></div>`:'<div></div>'}
+      <div>${conflicts?`<h4>${esc(E('pdf_conflicts'))}</h4><ul>${conflicts}</ul>`:''}${labs?`<h4>${esc(E('pdf_further'))}</h4><ul>${labs}</ul>`:''}</div>
     </div>
-    <div class="pfoot"><p>${esc(T('disclaimer'))}</p><div style="text-align:right">${esc(T('dev'))}<br>Pryme x AI</div></div>
+    <div class="psign"><div style="font-size:.84em;color:var(--grey);max-width:380px"><b style="color:#1B2433">${esc(E('pdf_basis'))}:</b> ${esc(basis)}</div><div class="line">${esc(E('pdf_sign'))}</div></div>
+    <div class="pfoot"><p>${esc(E('disclaimer'))}</p><div style="text-align:right;white-space:nowrap">${esc(E('dev'))}<br>Pryme x AI</div></div>
   </div>`;
 }
 const LIBS={
@@ -560,31 +602,40 @@ const LIBS={
 function loadScript(src){ return new Promise((ok,fail)=>{ const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=fail; document.head.appendChild(s); }); }
 async function loadOne(list,ready){ if(ready()) return; for(const src of list){ try{ await loadScript(src); if(ready()) return; }catch(_){} } throw new Error('PDF library could not load'); }
 const waitImages = el => Promise.all([...el.querySelectorAll('img')].map(i=>i.complete?0:new Promise(r=>{ i.onload=i.onerror=r; })));
-async function buildA4(){
-  const host=$('pdfhost'); host.innerHTML=onePageHtml(lastData);
+async function buildA4(client){
+  const host=$('pdfhost'); host.innerHTML=onePageHtml(lastData, client||{name:'-'});
   const a4=$('a4'); await waitImages(a4); if(document.fonts?.ready) await document.fonts.ready;
   // shrink the text until everything fits on one A4 page
-  let fs=12.5;
-  while(fs>8 && (a4.scrollHeight>a4.clientHeight+1 || [...a4.children].some(c=>c.offsetTop+c.offsetHeight>a4.clientHeight))){
-    fs-=0.4; a4.style.setProperty('--fs',fs+'px');
-  }
+  let fs=12.4;
+  const over = () => a4.scrollHeight>a4.clientHeight+1 || [...a4.children].some(c=>c.offsetTop+c.offsetHeight>a4.clientHeight-28);
+  while(fs>7.5 && over()){ fs-=0.3; a4.style.setProperty('--fs',fs+'px'); }
   return a4;
 }
+const fileName = (r,c) => `${r.report_no||'Report'}_${(c.name||'client').replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'')}.pdf`;
 $('pdfBtn').addEventListener('click', async () => {
   if(!lastData) return;
-  const btn=$('pdfBtn'); btn.disabled=true; btn.textContent=T('making_pdf'); clearError();
+  const client=getClient(); if(!client) return;
+  const btn=$('pdfBtn'); btn.disabled=true; btn.textContent=T('making_pdf');
   try{
     await loadOne(LIBS.canvas,()=>window.html2canvas);
     await loadOne(LIBS.pdf,()=>window.jspdf&&window.jspdf.jsPDF);
-    const a4=await buildA4();
-    const canvas=await html2canvas(a4,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,width:794,height:1123,windowWidth:1200});
+    const a4=await buildA4(client);
+    const canvas=await html2canvas(a4,{scale:2.2,backgroundColor:'#ffffff',useCORS:true,logging:false,width:794,height:1123,windowWidth:1200});
     const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
-    doc.addImage(canvas.toDataURL('image/jpeg',0.93),'JPEG',0,0,210,297);
-    doc.save(`${lastData.report.report_no||'Yasiru-Gems-Lab-Report'}.pdf`);
+    doc.setProperties({title:'Gemmological Report '+(lastData.report.report_no||''), author:'Yasiru Gems Lab', subject:client.name});
+    doc.addImage(canvas.toDataURL('image/jpeg',0.94),'JPEG',0,0,210,297);
+    doc.save(fileName(lastData.report, client));
   }catch(e){ console.error(e); showError(T('pdf_err')); }
   finally{ $('pdfhost').innerHTML=''; btn.disabled=false; btn.textContent=T('btn_pdf'); }
 });
-$('printBtn').addEventListener('click', () => window.print());
+$('printBtn').addEventListener('click', async () => {
+  if(!lastData) return;
+  const client=getClient(); if(!client) return;
+  await buildA4(client);
+  const done=()=>{ $('pdfhost').innerHTML=''; window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  window.print();
+});
 $('jsonBtn').addEventListener('click', () => {
   if(!lastData) return;
   const out=Object.assign({}, lastData, {verified_count:markers.length, verified_markers:markers});

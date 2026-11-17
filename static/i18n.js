@@ -1,6 +1,6 @@
 /* Interface text. English, Sinhala and Tamil are built in; every other language is
    translated once by the AI panel (/api/ui-text) and cached in the browser. */
-window.I18N_VERSION = 4;
+window.I18N_VERSION = 5;
 window.LANGS = [
   ["en","English","en-US"],["si","සිංහල","si-LK"],["ta","தமிழ்","ta-LK"],["hi","हिन्दी","hi-IN"],
   ["zh","中文","zh-CN"],["ja","日本語","ja-JP"],["ko","한국어","ko-KR"],["th","ไทย","th-TH"],
@@ -14,6 +14,17 @@ window.RTL = ["ar","fa","ur"];
 
 window.I18N = {
 en: {
+  c_title:"Report details", c_note:"The PDF and printed report are issued in English for international clients. The client name is required; phone and email are optional.",
+  f_cname:"Client name", f_cphone:"Contact number (optional)", f_cemail:"Email (optional)", ph_cname:"e.g. Anna Müller",
+  need_cname:"Please enter the client name before printing or downloading the report.", bad_email:"Please check the email address.",
+  f_sign:"Optic sign", sign_pos:"Positive (+)", sign_neg:"Negative (−)", f_magnet:"Neodymium magnet", mag_none:"No reaction", mag_weak:"Weak drag", mag_strong:"Strong drag / picks up",
+  f_phen:"Optical phenomena", phen_asterism:"Asterism (star)", phen_chatoyancy:"Chatoyancy (cat's eye)", phen_colour_change:"Colour change",
+  phen_play_of_colour:"Play of colour", phen_adularescence:"Adularescence", phen_labradorescence:"Labradorescence", phen_aventurescence:"Aventurescence", phen_iridescence:"Iridescence (orient)",
+  pdf_title:"Gemmological Report", pdf_issued:"Client", pdf_tel:"Tel.", pdf_email:"Email", pdf_desc:"Description", pdf_results:"Results",
+  pdf_ident:"Identification", pdf_treat:"Treatment", pdf_origin:"Origin", pdf_transp:"Transparency", pdf_phen:"Phenomenon",
+  pdf_comments:"Comments", pdf_further:"Recommended further testing", pdf_sign:"Gemmologist", pdf_estimate:"Estimated probability",
+  pdf_weight:"Carat weight", pdf_meas:"Measurements", pdf_tests:"Gemmological tests", pdf_conflicts:"Points to verify", pdf_group:"Group",
+  pdf_basis:"Basis of report", pdf_ai:"AI-assisted analysis", pdf_count:"Number of stones", pdf_stamp:"Stamp",
   app_title:"Yasiru Gems Lab", app_sub:"AI gem testing system",
   lead:"Add photos and videos of the stone, enter any tests you did, and a panel of AI models identifies the gem: species, natural or synthetic, heated or unheated and likely origin. It asks you follow-up questions in your language, then gives a one-page PDF report.",
   lang_label:"Language", theme_toggle:"Switch light / dark theme", theme_light:"Light", theme_dark:"Dark",
@@ -96,6 +107,12 @@ en: {
 },
 
 si: {
+  c_title:"වාර්තා විස්තර", c_note:"PDF සහ මුද්‍රිත වාර්තාව ජාත්‍යන්තර ගනුදෙනුකරුවන් සඳහා ඉංග්‍රීසියෙන් නිකුත් වේ. ගනුදෙනුකරුගේ නම අනිවාර්යයි; දුරකථන අංකය සහ ඊමේල් අවශ්‍ය නම් පමණි.",
+  f_cname:"ගනුදෙනුකරුගේ නම", f_cphone:"දුරකථන අංකය (අවශ්‍ය නම්)", f_cemail:"ඊමේල් (අවශ්‍ය නම්)", ph_cname:"උදා: Anna Müller",
+  need_cname:"වාර්තාව මුද්‍රණය කිරීමට හෝ බාගැනීමට පෙර ගනුදෙනුකරුගේ නම ඇතුළත් කරන්න.", bad_email:"කරුණාකර ඊමේල් ලිපිනය පරීක්ෂා කරන්න.",
+  f_sign:"ප්‍රකාශ ලකුණ (Optic sign)", sign_pos:"ධන (+)", sign_neg:"ඍණ (−)", f_magnet:"නියෝඩිමියම් චුම්බකය", mag_none:"ප්‍රතිචාරයක් නැත", mag_weak:"දුර්වල ඇදීමක්", mag_strong:"තදින් අදියි / ඔසවයි",
+  f_phen:"ප්‍රකාශ සංසිද්ධි", phen_asterism:"තාරකා (Asterism)", phen_chatoyancy:"බළල් ඇස (Cat's eye)", phen_colour_change:"වර්ණ වෙනස් වීම",
+  phen_play_of_colour:"වර්ණ ක්‍රීඩාව (Opal)", phen_adularescence:"සඳකැට දිලිසීම (Adularescence)", phen_labradorescence:"ලැබ්‍රඩෝරසන්ස්", phen_aventurescence:"ඇවෙන්චුරසන්ස්", phen_iridescence:"දේදුනු දිලිසීම (Orient)",
   app_title:"Yasiru Gems Lab", app_sub:"AI මැණික් පරීක්ෂණ පද්ධතිය",
   lead:"මැණිකේ ඡායාරූප සහ වීඩියෝ එකතු කරන්න, ඔබ කළ පරීක්ෂණ ඇතුළත් කරන්න. AI මාදිලි කිහිපයක් එකට මැණික හඳුනාගනී: වර්ගය, ස්වභාවිකද කෘත්‍රිමද, රත් කළාද නැද්ද සහ ඇති විය හැකි රට. ඔබේ භාෂාවෙන් අමතර ප්‍රශ්න අසා, පිටුවක PDF වාර්තාවක් ලබා දෙයි.",
   lang_label:"භාෂාව", theme_toggle:"ආලෝක / අඳුරු තේමාව මාරු කරන්න", theme_light:"ආලෝක", theme_dark:"අඳුරු",
@@ -178,6 +195,12 @@ si: {
 },
 
 ta: {
+  c_title:"அறிக்கை விவரங்கள்", c_note:"PDF மற்றும் அச்சிட்ட அறிக்கை சர்வதேச வாடிக்கையாளர்களுக்காக ஆங்கிலத்தில் வழங்கப்படும். வாடிக்கையாளர் பெயர் கட்டாயம்; தொலைபேசி மற்றும் மின்னஞ்சல் விருப்பமானவை.",
+  f_cname:"வாடிக்கையாளர் பெயர்", f_cphone:"தொலைபேசி எண் (விருப்பம்)", f_cemail:"மின்னஞ்சல் (விருப்பம்)", ph_cname:"எ.கா. Anna Müller",
+  need_cname:"அறிக்கையை அச்சிட அல்லது பதிவிறக்கும் முன் வாடிக்கையாளர் பெயரை உள்ளிடவும்.", bad_email:"மின்னஞ்சல் முகவரியைச் சரிபார்க்கவும்.",
+  f_sign:"ஒளியியல் குறி (Optic sign)", sign_pos:"நேர் (+)", sign_neg:"எதிர் (−)", f_magnet:"நியோடிமியம் காந்தம்", mag_none:"எதிர்வினை இல்லை", mag_weak:"பலவீனமான இழுப்பு", mag_strong:"வலுவாக இழுக்கும் / தூக்கும்",
+  f_phen:"ஒளியியல் நிகழ்வுகள்", phen_asterism:"நட்சத்திரம் (Asterism)", phen_chatoyancy:"பூனைக்கண் (Cat's eye)", phen_colour_change:"நிற மாற்றம்",
+  phen_play_of_colour:"நிற விளையாட்டு (Opal)", phen_adularescence:"அடுலாரசன்ஸ்", phen_labradorescence:"லாப்ரடோரசன்ஸ்", phen_aventurescence:"அவென்சுரசன்ஸ்", phen_iridescence:"வானவில் ஒளிர்வு (Orient)",
   app_title:"Yasiru Gems Lab", app_sub:"AI இரத்தினக்கல் சோதனை அமைப்பு",
   lead:"கல்லின் புகைப்படங்கள் மற்றும் வீடியோக்களைச் சேர்த்து, நீங்கள் செய்த சோதனைகளை உள்ளிடுங்கள். பல AI மாதிரிகள் இணைந்து கல்லை அடையாளம் காணும்: வகை, இயற்கையா செயற்கையா, சூடாக்கப்பட்டதா இல்லையா, சாத்தியமான நாடு. உங்கள் மொழியில் கூடுதல் கேள்விகள் கேட்டு, ஒரு பக்க PDF அறிக்கையை வழங்கும்.",
   lang_label:"மொழி", theme_toggle:"ஒளி / இருண்ட தீம் மாற்று", theme_light:"ஒளி", theme_dark:"இருண்ட",
