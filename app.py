@@ -1,11 +1,17 @@
 """
-Yasiru Gems & Jewellery - Gem Tracker (v3)
+Yasiru Gems & Jewellery - Yasiru Gems Lab, AI Gem Analysis (v4)
 
-* A panel of AI vision models (Groq, Gemini, Claude, xAI) inspects the photo.
-* The owner can add real instrument readings (diamond/thermal tester, moissanite
-  tester, refractive index, specific gravity, UV, weight, size, loupe observations).
-* A rules engine combines those readings with the AI result: species matching,
-  weight estimate and evidence-adjusted heated/unheated and natural/synthetic odds.
+* Several photos and video clips per test (the browser turns each video into still frames).
+* A panel of AI vision models (Gemini, Claude, OpenAI, xAI, Mistral, Groq ...) inspects every frame.
+* The owner can add real instrument readings: refractometer (RI, birefringence), hydrostatic SG,
+  polariscope / conoscope, dichroscope, Chelsea filter, spectroscope, UV, thermal and moissanite
+  testers, loupe/microscope inclusions and advanced lab data (FTIR, Raman, UV-Vis-NIR, EDXRF,
+  LA-ICP-MS, photoluminescence). Observations can be typed in ANY language.
+* The models answer in the language the client picked, and ask follow-up questions in that language.
+  The client's answers are sent back for a refined final result.
+* A rules engine combines readings with the AI result: species matching (RI, SG, optic character,
+  birefringence, pleochroism), conflict checks, weight estimate and evidence-adjusted
+  heated/unheated and natural/synthetic odds, plus an evidence level for the whole test.
 """
 import base64
 import io
@@ -15,6 +21,7 @@ import random
 import re
 import statistics
 import time
+from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 import requests
@@ -22,11 +29,22 @@ from flask import Flask, jsonify, request, send_from_directory
 from PIL import Image, ImageOps
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024
 
-TIMEOUT = 40  # seconds per single AI call
-DEADLINE = 50  # seconds: the whole analysis always answers before this
-GRACE = 10  # once 2 models have answered, wait at most this many extra seconds for the rest
+TIMEOUT = 60  # seconds per single AI call
+DEADLINE = 80  # seconds: the whole analysis always answers before this
+GRACE = 12  # once 2 models have answered, wait at most this many extra seconds for the rest
+MAX_IMAGES = 10  # photos + video frames per analysis
+
+LANGUAGES = {
+    "en": "English", "si": "Sinhala (සිංහල)", "ta": "Tamil (தமிழ்)", "hi": "Hindi (हिन्दी)",
+    "zh": "Simplified Chinese (中文)", "ja": "Japanese (日本語)", "ko": "Korean (한국어)", "th": "Thai (ไทย)",
+    "my": "Burmese (မြန်မာ)", "vi": "Vietnamese (Tiếng Việt)", "id": "Indonesian (Bahasa Indonesia)",
+    "ms": "Malay (Bahasa Melayu)", "bn": "Bengali (বাংলা)", "ur": "Urdu (اردو)", "ar": "Arabic (العربية)",
+    "fa": "Persian (فارسی)", "tr": "Turkish (Türkçe)", "ru": "Russian (Русский)", "de": "German (Deutsch)",
+    "fr": "French (Français)", "es": "Spanish (Español)", "pt": "Portuguese (Português)",
+    "it": "Italian (Italiano)", "nl": "Dutch (Nederlands)", "sw": "Swahili (Kiswahili)",
+}
 
 
 # --------------------------------------------------------------------------
@@ -60,32 +78,38 @@ PROVIDERS = {
         "label": "Gemini",
         "keys": env_keys("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY"),
         "models": model_list("GEMINI_MODEL", "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-pro"),
+        "max_images": 10,
     },
     "anthropic": {
         "label": "Claude",
         "keys": env_keys("ANTHROPIC_API_KEYS", "ANTHROPIC_API_KEY", "CLAUDE_API_KEYS", "CLAUDE_API_KEY"),
         "models": model_list("ANTHROPIC_MODEL", "claude-sonnet-5-5", "claude-opus-5-5"),
+        "max_images": 10,
     },
     "groq": {
         "label": "Groq",
         "keys": env_keys("GROQ_API_KEYS", "GROQ_API_KEY"),
         "models": model_list("GROQ_MODEL", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct"),
+        "max_images": 5,
     },
     "xai": {
         "label": "xAI Grok",
         "keys": env_keys("XAI_API_KEYS", "XAI_API_KEY"),
         "models": model_list("XAI_MODEL", "grok-4", "grok-4-fast", "grok-2-vision-1212"),
+        "max_images": 8,
     },
     "openai": {
         "label": "OpenAI",
         "keys": env_keys("OPENAI_API_KEYS", "OPENAI_API_KEY"),
         "models": model_list("OPENAI_MODEL", "gpt-4.1-mini", "gpt-4o-mini"),
+        "max_images": 10,
     },
     "mistral": {
         "label": "Mistral",
         "keys": env_keys("MISTRAL_API_KEYS", "MISTRAL_API_KEY"),
         "models": model_list("MISTRAL_MODEL", "mistral-small-latest", "pixtral-large-latest", "mistral-medium-latest"),
         "try_all_models": True,
+        "max_images": 8,
     },
     "openrouter": {
         # if OPENROUTER_MODEL is empty, free vision models are discovered automatically
@@ -93,18 +117,21 @@ PROVIDERS = {
         "keys": env_keys("OPENROUTER_API_KEYS", "OPENROUTER_API_KEY"),
         "models": model_list("OPENROUTER_MODEL"),
         "try_all_models": True,
+        "max_images": 4,
     },
     "github": {
         "label": "GitHub Models",
         "keys": env_keys("GITHUB_MODELS_TOKENS", "GITHUB_MODELS_TOKEN", "GITHUB_TOKEN"),
         "models": model_list("GITHUB_MODEL", "openai/gpt-4.1-mini", "openai/gpt-4o-mini"),
         "try_all_models": True,
+        "max_images": 6,
     },
     "custom": {
         # any OpenAI-compatible service (Together, NVIDIA NIM, Fireworks, DeepInfra ...)
         "label": os.environ.get("CUSTOM_LABEL", "Custom AI"),
         "keys": env_keys("CUSTOM_API_KEYS", "CUSTOM_API_KEY") if os.environ.get("CUSTOM_API_BASE") and os.environ.get("CUSTOM_MODEL") else [],
         "models": model_list("CUSTOM_MODEL"),
+        "max_images": 5,
     },
 }
 PREFERENCE = ["gemini", "anthropic", "openai", "xai", "mistral", "groq", "github", "openrouter", "custom"]
@@ -119,12 +146,12 @@ SPECIES = [
     ("Moissanite", 2.64, 2.69, 3.20, 3.24, "high", ("moissanite",)),
     ("Corundum (sapphire / ruby)", 1.757, 1.779, 3.95, 4.05, "mid", ("sapphire", "ruby", "corundum", "padparadscha")),
     ("Spinel", 1.712, 1.762, 3.58, 4.00, "mid", ("spinel",)),
-    ("Chrysoberyl (alexandrite / cat's eye)", 1.746, 1.755, 3.68, 3.78, "mid", ("alexandrite", "chrysoberyl")),
+    ("Chrysoberyl (alexandrite / cat's eye)", 1.746, 1.755, 3.68, 3.78, "mid", ("alexandrite", "chrysoberyl", "cat's eye", "cats eye")),
     ("Beryl (emerald / aquamarine / morganite)", 1.565, 1.602, 2.67, 2.78, "low", ("emerald", "aquamarine", "morganite", "beryl", "heliodor")),
     ("Topaz", 1.609, 1.643, 3.49, 3.57, "low", ("topaz",)),
     ("Tourmaline", 1.614, 1.666, 3.00, 3.10, "low", ("tourmaline", "rubellite", "indicolite", "paraiba")),
-    ("Quartz (amethyst / citrine / smoky)", 1.544, 1.553, 2.64, 2.66, "low", ("quartz", "amethyst", "citrine", "smoky", "rose quartz")),
-    ("Garnet", 1.714, 1.887, 3.58, 4.32, "low", ("garnet", "rhodolite", "almandine", "pyrope", "spessartine", "tsavorite", "demantoid", "hessonite")),
+    ("Quartz (amethyst / citrine / smoky)", 1.544, 1.553, 2.64, 2.66, "low", ("quartz", "amethyst", "citrine", "smoky", "rose quartz", "ametrine")),
+    ("Garnet", 1.714, 1.887, 3.58, 4.32, "low", ("garnet", "rhodolite", "almandine", "pyrope", "spessartine", "tsavorite", "demantoid", "hessonite", "grossular")),
     ("Zircon", 1.78, 1.99, 3.90, 4.73, "low", ("zircon",)),
     ("Peridot", 1.650, 1.703, 3.28, 3.48, "low", ("peridot", "olivine")),
     ("Tanzanite / Zoisite", 1.691, 1.700, 3.10, 3.38, "low", ("tanzanite", "zoisite")),
@@ -135,7 +162,7 @@ SPECIES = [
     ("Andalusite", 1.629, 1.650, 3.10, 3.20, "low", ("andalusite",)),
     ("Kyanite", 1.712, 1.735, 3.65, 3.69, "low", ("kyanite",)),
     ("Sphene / Titanite", 1.843, 2.110, 3.52, 3.54, "low", ("sphene", "titanite")),
-    ("Moonstone / Feldspar", 1.518, 1.568, 2.55, 2.70, "low", ("moonstone", "feldspar", "labradorite", "sunstone", "amazonite")),
+    ("Moonstone / Feldspar", 1.518, 1.568, 2.55, 2.70, "low", ("moonstone", "feldspar", "labradorite", "sunstone", "amazonite", "orthoclase")),
     ("Opal", 1.37, 1.47, 1.98, 2.50, "low", ("opal",)),
     ("Jadeite (jade)", 1.654, 1.667, 3.30, 3.38, "low", ("jadeite", "jade")),
     ("Nephrite (jade)", 1.600, 1.641, 2.90, 3.02, "low", ("nephrite",)),
@@ -148,16 +175,53 @@ SPECIES = [
 ]
 SIMULANTS = ("Cubic zirconia (simulant)", "YAG (simulant)", "GGG (simulant)", "Glass (imitation)")
 
+# optic character and birefringence: SR singly refractive, U uniaxial, B biaxial, AGG aggregate
+OPTICS = {
+    "Diamond": ("SR", 0, 0), "Moissanite": ("U", 0.043, 0.043),
+    "Corundum (sapphire / ruby)": ("U", 0.008, 0.010), "Spinel": ("SR", 0, 0),
+    "Chrysoberyl (alexandrite / cat's eye)": ("B", 0.008, 0.010),
+    "Beryl (emerald / aquamarine / morganite)": ("U", 0.004, 0.009), "Topaz": ("B", 0.008, 0.010),
+    "Tourmaline": ("U", 0.014, 0.032), "Quartz (amethyst / citrine / smoky)": ("U", 0.009, 0.009),
+    "Garnet": ("SR", 0, 0), "Zircon": ("U", 0.0, 0.059), "Peridot": ("B", 0.035, 0.038),
+    "Tanzanite / Zoisite": ("B", 0.008, 0.013), "Kunzite / Spodumene": ("B", 0.014, 0.016),
+    "Apatite": ("U", 0.002, 0.006), "Iolite / Cordierite": ("B", 0.008, 0.012),
+    "Sinhalite": ("B", 0.036, 0.039), "Andalusite": ("B", 0.007, 0.013), "Kyanite": ("B", 0.012, 0.017),
+    "Sphene / Titanite": ("B", 0.100, 0.135), "Moonstone / Feldspar": ("B", 0.005, 0.010),
+    "Opal": ("SR", 0, 0), "Jadeite (jade)": ("AGG", 0, 0.012), "Nephrite (jade)": ("AGG", 0, 0.027),
+    "Turquoise": ("AGG", 0, 0.040), "Fluorite": ("SR", 0, 0), "Cubic zirconia (simulant)": ("SR", 0, 0),
+    "YAG (simulant)": ("SR", 0, 0), "GGG (simulant)": ("SR", 0, 0), "Glass (imitation)": ("SR", 0, 0),
+}
+# singly refractive materials that commonly show strain (anomalous double refraction) in the polariscope
+ADR_PRONE = {"Diamond", "Garnet", "Spinel", "Opal", "Glass (imitation)", "YAG (simulant)", "GGG (simulant)",
+             "Cubic zirconia (simulant)"}
+STRONG_DOUBLING = {"Moissanite", "Zircon", "Peridot", "Sphene / Titanite", "Sinhalite", "Tourmaline"}
+
 # weight formula factors: carat = L x W x depth x SG x k   (length/width/depth in mm)
 SHAPE_K = {
     "round": 0.0018, "oval": 0.0020, "cushion": 0.00245, "emerald cut / rectangular": 0.0025,
-    "princess / square": 0.0023, "pear": 0.0017, "marquise": 0.0014, "heart": 0.0021, "other / unknown": 0.0020,
+    "princess / square": 0.0023, "pear": 0.0017, "marquise": 0.0014, "heart": 0.0021,
+    "cabochon": 0.0026, "other / unknown": 0.0020,
 }
 
 UV_OPTIONS = ("none", "weak", "red", "orange", "yellow", "green", "blue", "white / chalky", "other")
+POLARISCOPE = ("SR", "DR", "AGG", "ADR")
+OPTIC_FIGURE = ("uniaxial", "biaxial", "none")
+PLEOCHROISM = ("none", "dichroic", "trichroic")
+CHELSEA = ("none", "red", "pink", "green", "other")
+SPECTRO = {
+    "chromium": "Chromium lines (sharp red lines / fine doublet near 690-694 nm)",
+    "iron_450": "Iron band at 450 nm (with 460/470 nm lines)",
+    "cobalt": "Three broad cobalt bands (yellow, green, blue)",
+    "rare_earth": "Fine rare-earth (didymium) lines near 580 nm",
+    "zircon_653": "Zircon line at 653.5 nm and many fine lines",
+    "almandine": "Almandine bands at 505 / 527 / 576 nm",
+    "none_seen": "No clear absorption lines",
+}
+SPECTRO_HINT = {"zircon_653": ("Zircon",), "almandine": ("Garnet",),
+                "rare_earth": ("Apatite", "YAG (simulant)", "Glass (imitation)", "Cubic zirconia (simulant)")}
 
 # loupe / microscope observations -> likelihood multipliers
-# t = heat treatment odds, a = natural/synthetic/glass odds
+# t = heat treatment odds, a = natural/synthetic/glass odds, s = species that this points to
 OBS = {
     "silk_intact": ("Fine rutile silk (needles) intact", {"t": {"Unheated": 3, "Heated": 0.4}, "a": {"Natural": 2, "Synthetic / lab-grown": 0.4}}, "favours unheated and natural"),
     "silk_broken": ("Silk broken, dotted or dissolved", {"t": {"Heated": 3, "Unheated": 0.3}}, "favours heat treatment"),
@@ -169,12 +233,20 @@ OBS = {
     "mineral_crystals": ("Crystals of other minerals inside (zircon, apatite, etc.)", {"a": {"Natural": 3, "Synthetic / lab-grown": 0.3, "Glass / imitation": 0.1}}, "strongly favours natural"),
     "zoning_angular": ("Straight, angular colour zoning", {"a": {"Natural": 2, "Synthetic / lab-grown": 0.6}, "t": {"Unheated": 1.3}}, "favours natural"),
     "curved_striae": ("Curved striae / curved colour bands", {"a": {"Synthetic / lab-grown": 8, "Natural": 0.1}}, "strongly indicates flame-fusion synthetic"),
+    "plato_lines": ("Plato lines under crossed polars (immersion)", {"a": {"Synthetic / lab-grown": 10, "Natural": 0.1}}, "strongly indicates Verneuil synthetic corundum"),
+    "chevron": ("Chevron / zig-zag growth (hydrothermal)", {"a": {"Synthetic / lab-grown": 6, "Natural": 0.2}}, "indicates hydrothermal synthetic"),
+    "nailhead": ("Nail-head spicules", {"a": {"Synthetic / lab-grown": 8, "Natural": 0.15}, "s": ("Beryl (emerald / aquamarine / morganite)",)}, "indicates hydrothermal synthetic (e.g. emerald)"),
     "bubbles": ("Round gas bubbles", {"a": {"Glass / imitation": 6, "Synthetic / lab-grown": 2, "Natural": 0.3}}, "indicates glass or synthetic"),
     "swirl": ("Swirl marks or flow lines", {"a": {"Glass / imitation": 8, "Natural": 0.1}}, "strongly indicates glass"),
     "flux": ("Flux / feather-like or veil-like inclusions", {"a": {"Synthetic / lab-grown": 4, "Natural": 0.6}, "t": {"Heated": 1.3}}, "favours flux-grown synthetic"),
+    "three_phase": ("Three-phase (jagged) inclusions", {"a": {"Natural": 4, "Synthetic / lab-grown": 0.2}, "s": ("Beryl (emerald / aquamarine / morganite)",)}, "strongly favours natural (classic Colombian emerald)"),
+    "horsetail": ("Horsetail (radiating fibre) inclusions", {"a": {"Natural": 5, "Synthetic / lab-grown": 0.1}, "s": ("Garnet",)}, "strongly favours natural demantoid garnet"),
+    "lily_pad": ("Lily-pad discs", {"a": {"Natural": 3}, "s": ("Peridot",)}, "favours natural peridot"),
+    "doubling": ("Strong doubling of back facet edges", {"s": tuple(STRONG_DOUBLING)}, "indicates a strongly doubly refractive material"),
     "chips": ("Shell-like (conchoidal) chips on edges", {"a": {"Glass / imitation": 2.5}}, "favours glass"),
     "flash_effect": ("Blue/orange flash in fractures (flash effect)", {"t": {"Diffusion-treated / filled": 8, "Unheated": 0.2, "Heated": 0.6}}, "strongly indicates fracture filling"),
     "edge_color": ("Colour concentrated along facet edges or surface", {"t": {"Diffusion-treated / filled": 8, "Unheated": 0.2}}, "strongly indicates diffusion treatment"),
+    "glass_filled": ("Gas bubbles / glassy filling inside fractures", {"t": {"Diffusion-treated / filled": 8, "Unheated": 0.2}}, "indicates lead-glass or fracture filling"),
 }
 
 TREAT_KEYS = ("Unheated", "Heated", "Diffusion-treated / filled")
@@ -184,64 +256,104 @@ AUTH_KEYS = ("Natural", "Synthetic / lab-grown", "Glass / imitation")
 # --------------------------------------------------------------------------
 # Prompt
 # --------------------------------------------------------------------------
-SYSTEM_PROMPT = """You are a senior gemologist assistant. You inspect a PHOTO of loose gemstones and return ONLY one JSON object (no markdown, no commentary).
+SYSTEM_PROMPT = """You are a senior gemologist (GIA/FGA level) working for Yasiru Gems Lab. You inspect one or more PHOTOS of gemstones (several photos and video frames can show the SAME stone or lot from different angles, lights and magnifications) and return ONLY one JSON object (no markdown, no commentary).
 
 Return exactly this shape:
 {
   "image_quality": "good | fair | poor",
-  "total_count": <integer>,
+  "total_count": <integer, number of separate stones in the lot>,
   "count_confidence": "low | medium | high",
   "stone_points": [ {"x": <0.0-1.0>, "y": <0.0-1.0>} ],
+  "identification": {
+    "species": "ENGLISH mineral species, e.g. Corundum, Spinel, Beryl, Diamond, Glass, Unknown",
+    "variety": "ENGLISH trade variety, e.g. Blue Sapphire, Ruby, Emerald, Padparadscha",
+    "name_local": "the variety name written in the REPORT LANGUAGE",
+    "confidence_percent": <0-100>,
+    "reasoning": "REPORT LANGUAGE: 2-4 sentences, which evidence identifies it"
+  },
   "gems": [
     {
       "id": <1-based integer>,
-      "type": "specific material, e.g. Blue Sapphire, Ruby, Emerald, Diamond, Spinel, Tourmaline, Moonstone, Cubic zirconia, Glass, Unknown",
-      "color": "specific colour, e.g. Cornflower blue, Pigeon-blood red",
-      "shape_cut": "e.g. Oval faceted, Round brilliant, Cushion, Cabochon, Rough",
-      "estimated_origin": ["most likely countries, best guess first"],
+      "type": "ENGLISH specific material, e.g. Blue Sapphire, Ruby, Emerald, Diamond, Spinel, Cubic zirconia, Glass, Unknown",
+      "type_local": "same, written in the REPORT LANGUAGE",
+      "color": "REPORT LANGUAGE: specific colour, e.g. cornflower blue",
+      "shape_cut": "REPORT LANGUAGE: e.g. oval mixed cut, cabochon, rough",
+      "estimated_origin": ["ENGLISH country names, best guess first"],
       "origin_confidence": "low | medium | high",
       "authenticity": "likely natural | likely synthetic/lab-grown | likely glass or imitation | cannot determine",
       "authenticity_confidence": "low | medium | high",
       "treatment": "likely unheated | likely heated | likely diffusion-treated or filled | cannot determine",
       "treatment_confidence": "low | medium | high",
-      "treatment_indicators": "visible clues behind the treatment opinion",
-      "notes": "short remarks on clarity, inclusions, silk, zoning, surface wear, anything suspicious"
+      "treatment_indicators": "REPORT LANGUAGE: visible clues behind the treatment opinion",
+      "notes": "REPORT LANGUAGE: clarity, inclusions, silk, zoning, phenomena, surface wear, anything suspicious"
     }
   ],
   "lot_origin_probabilities": [ {"country": "Sri Lanka", "percent": 55}, {"country": "Madagascar", "percent": 25} ],
   "lot_treatment_probabilities": [ {"status": "Unheated", "percent": 30}, {"status": "Heated", "percent": 60}, {"status": "Diffusion-treated / filled", "percent": 10} ],
   "lot_authenticity_probabilities": [ {"status": "Natural", "percent": 85}, {"status": "Synthetic / lab-grown", "percent": 10}, {"status": "Glass / imitation", "percent": 5} ],
-  "summary_by_type": [ {"type": "Blue Sapphire", "count": 3} ],
-  "summary_by_colour": [ {"color": "Blue", "count": 3} ],
-  "visual_weight_estimate": {"min_ct": <number or null>, "max_ct": <number or null>, "basis": "what size reference you used, or why it is null"},
-  "overall_remarks": "2-4 sentences about the lot, including every doubt"
+  "summary_by_type": [ {"type": "REPORT LANGUAGE type", "count": 3} ],
+  "summary_by_colour": [ {"color": "REPORT LANGUAGE colour", "count": 3} ],
+  "visual_weight_estimate": {"min_ct": <number or null>, "max_ct": <number or null>, "basis": "ENGLISH: what size reference you used, or why it is null"},
+  "interpreted_tests": {
+    "polariscope": "SR | DR | AGG | ADR | unknown",
+    "optic_figure": "uniaxial | biaxial | none | unknown",
+    "pleochroism": "none | dichroic | trichroic | unknown",
+    "chelsea": "none | red | pink | green | other | unknown",
+    "ri": "number or range as text, or empty",
+    "sg": "number as text, or empty"
+  },
+  "tests_used": [ {"method": "REPORT LANGUAGE test name", "finding": "REPORT LANGUAGE what was seen or measured", "meaning": "REPORT LANGUAGE what it indicates"} ],
+  "follow_up_questions": [
+    {"id": "q1", "question": "REPORT LANGUAGE question to the client", "why": "REPORT LANGUAGE: why this answer matters", "options": ["REPORT LANGUAGE short answer choice", "..."]}
+  ],
+  "recommended_lab_tests": ["REPORT LANGUAGE: lab test + what it would prove"],
+  "overall_remarks": "REPORT LANGUAGE: 2-4 sentences about the lot, including every doubt",
+  "conclusion": "REPORT LANGUAGE: 2-3 sentence final statement for a one-page report (species, variety, natural/synthetic, treatment, origin opinion, confidence)"
 }
 
-GEM SCOPE: the stones may be ANY gem material: diamond, ruby, sapphire (every colour), emerald, aquamarine and other beryl, spinel, garnet, tourmaline, topaz, zircon, peridot, tanzanite, alexandrite and other chrysoberyl, moonstone and other feldspar, the quartz family, opal, jade, turquoise, lab-grown stones and simulants (cubic zirconia, moissanite, glass). Identify the material as specifically as the photo allows.
+LANGUAGE: every field marked REPORT LANGUAGE must be written in the report language given in the user message (use its native script). Fields marked ENGLISH and every enum value stay in English exactly as shown, because software reads them.
 
-COUNTING RULES (most important):
-- Scan the photo systematically (row by row). Count every separate stone exactly once.
-- A stone that is more than about half visible counts. Mention hidden or heavily overlapping stones in overall_remarks.
-- Do not count hands, fingers, leaves, flowers, tray edges, reflections or shadows.
-- "stone_points" has one entry per counted stone: its centre as fractions of image width (x) and height (y) from the top-left corner. Its length must equal total_count.
-- If unsure of the exact number, give your best number and set count_confidence to low or medium.
-- "gems" has one entry per stone. If there are more than 40 stones, list only 40 representative entries and say so in overall_remarks.
+GEM SCOPE: the stones may be ANY gem material in the world: diamond, ruby, sapphire (every colour, padparadscha, star), emerald and all beryl, spinel, all garnets, tourmaline (incl. paraiba), topaz, zircon, peridot, tanzanite, alexandrite and cat's eye chrysoberyl, moonstone and feldspars, the quartz family, opal, jade, turquoise, pearl, coral, amber, lapis, organic and rare collector stones, lab-grown stones (flame-fusion, flux, hydrothermal, CVD, HPHT) and simulants (cubic zirconia, moissanite, YAG, GGG, glass, doublets and triplets). Identify the material as specifically as the evidence allows.
 
-PROBABILITY RULES:
-- Each of the three "lot_*_probabilities" lists adds up to exactly 100 and describes the whole lot as a share out of 100.
-- Origin: only use countries that are realistic for the stone type (for blue sapphire: Sri Lanka, Madagascar, Myanmar, Thailand, Australia, Kashmir/India, Tanzania, Montana USA ...). If the photo gives little evidence, spread the probability.
-- Treatment clues: unheated stones often show intact rutile silk, natural colour zoning, fingerprint inclusions, uneven colour; heated stones often show dissolved or broken silk, discoid stress fractures, glassy patches, very even colour and clean surface; diffusion or fracture-filled stones show colour concentrated at facet edges, flash effect in fractures, or bubbles in fillings.
+MULTIPLE IMAGES: all images belong to the same test. Combine the views: use close-ups and video frames for inclusions, colour zoning, doubling, surface lustre and phenomena; use the widest image (image 1) for counting. stone_points refer to IMAGE 1 only.
 
-WEIGHT RULE: give visual_weight_estimate numbers ONLY if a size reference (ruler, coin, standard object) is clearly visible in the photo. A hand, palm, finger or tray is NOT a size reference. Otherwise set min_ct and max_ct to null and explain in basis.
+COUNTING RULES:
+- Scan image 1 systematically (row by row). Count every separate stone exactly once. Do not count hands, tweezers, trays, reflections or shadows.
+- "stone_points" has one entry per counted stone (centre as fractions of image 1 width x and height y from top-left). Its length must equal total_count.
+- "gems" has one entry per stone (max 40, say so in overall_remarks if more).
 
-INSTRUMENT DATA: if the user message contains OWNER-SUPPLIED READINGS, trust the numeric readings (refractive index, specific gravity, weight, thermal tester, UV) over visual impressions, but treat the owner's claim about the stone as unverified. A thermal diamond tester only separates diamond and moissanite from other materials; it says nothing about heat treatment of coloured stones and cannot separate natural from lab-grown diamond.
+STANDARD GEMMOLOGICAL TESTS - how to read the client's data:
+- Refractometer: RI and birefringence (BR) are the strongest species identifiers. Corundum 1.762-1.770 BR 0.008; spinel 1.718 SR; beryl 1.57-1.58; tourmaline 1.62-1.64 BR 0.018+; quartz 1.544-1.553; chrysoberyl 1.746-1.755; zircon 1.81-1.98; peridot 1.65-1.69 BR 0.036; topaz 1.61-1.63; garnets 1.72-1.89 SR; over-the-limit (OTL, >1.81) = diamond, CZ, moissanite, YAG, GGG, sphene, demantoid, high zircon.
+- Hydrostatic SG: corundum 4.00, spinel 3.60, beryl 2.72, quartz 2.65, topaz 3.53, tourmaline 3.06, diamond 3.52, CZ 5.6-6.0, glass 2.3-4.5.
+- Polariscope: SR = stays dark on rotation (diamond, spinel, garnet, glass, CZ, YAG, opal); DR = blinks light/dark 4 times per turn (corundum, beryl, quartz, tourmaline ...); AGG = stays light (jade, chalcedony, turquoise); ADR = snaky/tatami/cross-hatched strain (synthetic spinel, garnet, glass, diamond). Conoscope figure: uniaxial (corundum, beryl, quartz, tourmaline, zircon) vs biaxial (topaz, chrysoberyl, peridot, tanzanite, iolite, feldspar). Quartz shows a bull's-eye figure.
+- Dichroscope: SR shows none; uniaxial DR shows two colours (dichroic); biaxial can show three (trichroic: tanzanite, iolite, andalusite, alexandrite).
+- Chelsea filter: red/pink = chromium (natural and synthetic emerald, ruby, red spinel, alexandrite, demantoid) OR cobalt (blue synthetic spinel and cobalt glass show red, natural blue sapphire stays dark/green). Aquamarine looks green.
+- Spectroscope: Cr lines (ruby, emerald, red spinel, alexandrite); Fe 450 nm band (natural blue/green/yellow sapphire, strongest in basaltic stones, usually missing in Verneuil synthetics); cobalt bands (synthetic spinel, cobalt glass); 653.5 nm (zircon); 505/527/576 nm (almandine); rare-earth lines (apatite, doped glass/YAG).
+- UV: ruby/red spinel red; Sri Lankan yellow sapphire orange-apricot; synthetic blue sapphire chalky-greenish SW; heated blue sapphire may show chalky blue-white SW zoning; diamond blue LW (phosphorescence); CVD/HPHT lab diamonds often inert LW and show patterns/phosphorescence in SW.
+- Thermal/moissanite testers: only separate diamond and moissanite from other materials; they say nothing about heating and cannot separate natural from lab-grown diamond.
+- Magnification: natural = angular zoning, crystals, fingerprints, rutile silk, three-phase (Colombian emerald), horsetail (demantoid), lily-pads (peridot); synthetic = curved striae and Plato lines (Verneuil), flux fingerprints, platinum platelets, chevron growth and nail-heads (hydrothermal), metallic flux or pinpoint clouds in HPHT/CVD diamond; heated = dissolved/dotted silk, discoid tension halos, melted crystals, healed glassy residues; filled = flash effect, gas bubbles in fractures (lead-glass ruby); diffusion = colour concentrated at facet edges/girdle seen in immersion.
+
+ADVANCED LAB METHODS - use them when the client pastes results, and recommend the right ones:
+- FTIR: 3309 cm-1 OH series in blue sapphire suggests heating (basaltic) ; kaolinite/boehmite/diaspore/gibbsite bands support no heat; emerald/jade resin fillers and polymer impregnation; diamond type Ia/IIa/IIb.
+- Raman / PL: species and inclusion ID; broadened Cr PL peaks indicate heated spinel; SiV 737 nm PL = CVD diamond; Ni-related lines = HPHT synthetic.
+- UV-Vis-NIR: Fe/Ti charge transfer, basaltic vs metamorphic sapphire, Cr/V colour causes, irradiation.
+- EDXRF and LA-ICP-MS trace elements (Ga, Mg, Fe, Ti, V, Cr, Be): origin determination, Be-diffusion, synthetic vs natural.
+- DiamondView / UV imaging: growth patterns of natural, HPHT and CVD diamond.
+
+ORIGIN RULES: only use countries realistic for the stone type (blue sapphire: Sri Lanka, Madagascar, Myanmar, Thailand, Australia, Kashmir, Tanzania, Montana USA, Nigeria, Cambodia, Ethiopia ...; ruby: Myanmar, Mozambique, Thailand, Sri Lanka, Madagascar, Afghanistan, Tanzania, Vietnam ...; emerald: Colombia, Zambia, Brazil, Afghanistan/Panjshir, Ethiopia, Madagascar ...). Metamorphic sapphire (low iron, silk, weak 450 nm) points to Sri Lanka, Madagascar, Myanmar, Kashmir; basaltic sapphire (high iron, strong 450 nm, dark, inky) points to Thailand, Cambodia, Australia, Nigeria. Spread the probability when evidence is weak. Probability lists each add up to exactly 100.
+
+FOLLOW-UP QUESTIONS: ask 3-6 short, practical questions in the REPORT LANGUAGE whose answers would change your conclusion the most (e.g. "In the polariscope, does the stone blink 4 times or stay dark?", "What is the RI reading?", "Under the Chelsea filter is it red or green?", "Do you see curved bands under the loupe?"). Give 2-5 short answer options for each, always including an "I don't know / not tested" option. If the user message already contains the client's ANSWERS, use them, and only ask about what is still unclear.
+
+INSTRUMENT DATA: trust the client's numeric readings (RI, BR, SG, weight) and instrument results over visual impressions, but treat the client's claim about the stone as unverified. Free-text observations may be written in any language or mixed language (e.g. Sinhala written in English letters): translate them and fill "interpreted_tests" from them.
 
 HONESTY RULES:
-- A photo can never prove origin, heat treatment or natural/synthetic status. Give calibrated estimates and use low confidence when evidence is weak. Never claim certainty.
-- If the image contains no gemstones, return total_count 0, empty lists, and explain in overall_remarks.
+- Photos alone can never prove origin, heat treatment or natural/synthetic status. Calibrate your confidence to the evidence actually available and never claim certainty you do not have. Name exactly which test would settle each open question.
+- If the images contain no gemstones, return total_count 0, empty lists, and explain in overall_remarks.
 """
 
-USER_PROMPT = "Inspect the gemstones in this photo and return the JSON report."
+USER_PROMPT = "Inspect the gemstone images ({n} image(s), image 1 = main photo) and return the JSON report. REPORT LANGUAGE: {lang}."
+
+UI_PROMPT = """You translate the user interface of a gem testing web app. Translate every JSON value into {lang} (native script), keep the keys unchanged, keep it short and natural for gem traders, keep technical abbreviations (RI, SG, UV, FTIR, PDF, ct, mm) as they are. Return ONLY the JSON object."""
 
 
 # --------------------------------------------------------------------------
@@ -249,6 +361,10 @@ USER_PROMPT = "Inspect the gemstones in this photo and return the JSON report."
 # --------------------------------------------------------------------------
 def _floats(text):
     return [float(x) for x in re.findall(r"\d+(?:\.\d+)?", str(text))]
+
+
+def _clean_text(v, n):
+    return re.sub(r"\s+", " ", str(v or "")).strip()[:n]
 
 
 def parse_manual(raw):
@@ -273,7 +389,7 @@ def parse_manual(raw):
         if lo <= x <= hi:
             out[key] = int(x) if as_int else x
 
-    claim = str(m.get("claim", "")).strip()[:80]
+    claim = _clean_text(m.get("claim"), 80)
     if claim:
         out["claim"] = claim
     shape = str(m.get("shape", "")).strip().lower()
@@ -283,22 +399,44 @@ def parse_manual(raw):
     num("width_mm", 0.5, 150)
     num("depth_mm", 0.3, 150)
     num("thermal", 0, 8, as_int=True)
+    num("biref", 0.0, 0.3)
     if m.get("moissanite") in ("yes", "no"):
         out["moissanite"] = m["moissanite"]
-    ri = _floats(m.get("ri", ""))
-    ri = [x for x in ri if 1.3 <= x <= 3.0]
+    ri = [x for x in _floats(m.get("ri", "")) if 1.3 <= x <= 3.0]
     if ri:
         out["ri"] = [min(ri), max(ri)]
-    sg = _floats(m.get("sg", ""))
-    sg = [x for x in sg if 1.0 <= x <= 8.0]
+        if "biref" not in out and len(ri) >= 2 and max(ri) - min(ri) > 0:
+            out["biref"] = round(max(ri) - min(ri), 3)
+    if str(m.get("ri", "")).strip().upper() in ("OTL", "OVER THE LIMIT"):
+        out["ri_otl"] = True
+    sg = [x for x in _floats(m.get("sg", "")) if 1.0 <= x <= 8.0]
     if sg:
         out["sg"] = [min(sg), max(sg)]
     for k in ("uv_long", "uv_short"):
         if m.get(k) in UV_OPTIONS:
             out[k] = m[k]
+    for k, allowed in (("polariscope", POLARISCOPE), ("optic_figure", OPTIC_FIGURE),
+                       ("pleochroism", PLEOCHROISM), ("chelsea", CHELSEA)):
+        if m.get(k) in allowed:
+            out[k] = m[k]
+    spec = [s for s in (m.get("spectro") or []) if s in SPECTRO]
+    if spec:
+        out["spectro"] = spec
     obs = [o for o in (m.get("observations") or []) if o in OBS]
     if obs:
         out["observations"] = obs
+    for k, n in (("free_text", 1500), ("lab_text", 2500)):
+        t = _clean_text(m.get(k), n)
+        if t:
+            out[k] = t
+    qa = []
+    for item in (m.get("answers") or [])[:10]:
+        if isinstance(item, dict):
+            q, a = _clean_text(item.get("q"), 300), _clean_text(item.get("a"), 300)
+            if q and a:
+                qa.append({"q": q, "a": a})
+    if qa:
+        out["answers"] = qa
 
     meaningful = set(out) - {"shape"}
     return out if meaningful else {}
@@ -307,17 +445,31 @@ def parse_manual(raw):
 def manual_to_text(m):
     if not m:
         return ""
-    lines = ["", "OWNER-SUPPLIED READINGS (measured by the owner with instruments; the 'claim' is unverified):"]
+    lines = ["", "CLIENT-SUPPLIED READINGS (measured by the client with instruments; the 'claim' is unverified):"]
     if m.get("claim"):
-        lines.append(f"- Owner's claim about the stone: {m['claim']}")
+        lines.append(f"- Client's claim about the stone: {m['claim']}")
     if "thermal" in m:
         lines.append(f"- Diamond/thermal tester reading: {m['thermal']} of 8 bars")
     if m.get("moissanite"):
         lines.append(f"- Moissanite (electrical) tester: {'moissanite detected' if m['moissanite'] == 'yes' else 'no moissanite detected'}")
     if m.get("ri"):
         lines.append(f"- Refractive index: {m['ri'][0]}" + (f" to {m['ri'][1]}" if m['ri'][1] != m['ri'][0] else ""))
+    if m.get("ri_otl"):
+        lines.append("- Refractometer: over the limit (OTL, above about 1.81)")
+    if "biref" in m:
+        lines.append(f"- Birefringence: {m['biref']}")
     if m.get("sg"):
         lines.append(f"- Specific gravity: {m['sg'][0]}" + (f" to {m['sg'][1]}" if m['sg'][1] != m['sg'][0] else ""))
+    if m.get("polariscope"):
+        lines.append(f"- Polariscope: {m['polariscope']}")
+    if m.get("optic_figure"):
+        lines.append(f"- Conoscope interference figure: {m['optic_figure']}")
+    if m.get("pleochroism"):
+        lines.append(f"- Dichroscope: {m['pleochroism']}")
+    if m.get("chelsea"):
+        lines.append(f"- Chelsea colour filter: {m['chelsea']}")
+    if m.get("spectro"):
+        lines.append("- Spectroscope: " + "; ".join(SPECTRO[s] for s in m["spectro"]))
     if m.get("weight_ct"):
         lines.append(f"- Weight: {m['weight_ct']} ct")
     dims = [m.get(k) for k in ("length_mm", "width_mm", "depth_mm")]
@@ -329,7 +481,15 @@ def manual_to_text(m):
         lines.append(f"- UV short-wave reaction: {m['uv_short']}")
     if m.get("observations"):
         lines.append("- Loupe/microscope observations: " + "; ".join(OBS[o][0] for o in m["observations"]))
-    lines.append("These readings describe the single stone being tested. Use them to refine your answer for that stone.")
+    if m.get("free_text"):
+        lines.append(f"- Client's own description of polariscope / other observations (may be in any language, translate it): \"{m['free_text']}\"")
+    if m.get("lab_text"):
+        lines.append(f"- Advanced lab data pasted by the client (FTIR / Raman / UV-Vis-NIR / EDXRF / LA-ICP-MS / PL): \"{m['lab_text']}\"")
+    if m.get("answers"):
+        lines.append("- The client ANSWERED your earlier follow-up questions:")
+        for qa in m["answers"]:
+            lines.append(f"  Q: {qa['q']}  A: {qa['a']}")
+    lines.append("These readings describe the single stone being tested (or the main stone of the lot). Use them to refine your answer.")
     return "\n".join(lines)
 
 
@@ -339,7 +499,7 @@ def manual_to_text(m):
 def species_from_text(text):
     t = (text or "").lower()
     for s in SPECIES:
-        if any(a in t for a in s[6]):
+        if any(re.search(r"\b" + re.escape(a) + r"\b", t) for a in s[6]):
             return s
     return None
 
@@ -382,8 +542,54 @@ def thermal_note(m):
     return f"Reading {t}/8 is low. This is NOT a diamond (typical of cubic zirconia, glass, quartz and most coloured stones)."
 
 
+def optic_factor(name, m):
+    """How well the optical tests fit this material: (factor, reasons)."""
+    optic, bi_lo, bi_hi = OPTICS.get(name, ("SR", 0, 0))
+    f, reasons = 1.0, []
+    pol = m.get("polariscope")
+    if pol:
+        table = {
+            "SR": {"SR": 1.0, "U": 0.12, "B": 0.12, "AGG": 0.15},
+            "DR": {"SR": 0.3 if name in ADR_PRONE else 0.08, "U": 1.0, "B": 1.0, "AGG": 0.4},
+            "AGG": {"SR": 0.15, "U": 0.25, "B": 0.25, "AGG": 1.0},
+            "ADR": {"SR": 1.0 if name in ADR_PRONE else 0.5, "U": 0.35, "B": 0.35, "AGG": 0.3},
+        }
+        x = table[pol][optic]
+        f *= x
+        reasons.append(f"polariscope {pol} {'fits' if x >= 0.9 else 'conflicts with' if x < 0.3 else 'is possible for'} a {optic} material")
+    fig = m.get("optic_figure")
+    if fig in ("uniaxial", "biaxial"):
+        want = "U" if fig == "uniaxial" else "B"
+        x = 1.0 if optic == want else (0.12 if optic in ("U", "B") else 0.1)
+        f *= x
+        reasons.append(f"{fig} figure {'fits' if x >= 0.9 else 'conflicts'}")
+    pl = m.get("pleochroism")
+    if pl:
+        x = {"none": {"SR": 1.0, "AGG": 1.0, "U": 0.6, "B": 0.6},
+             "dichroic": {"SR": 0.1, "AGG": 0.4, "U": 1.0, "B": 0.85},
+             "trichroic": {"SR": 0.05, "AGG": 0.2, "U": 0.1, "B": 1.0}}[pl][optic]
+        f *= x
+        if x < 0.9:
+            reasons.append(f"pleochroism '{pl}' {'conflicts' if x < 0.3 else 'is weakly consistent'}")
+    if "biref" in m:
+        x = range_match(m["biref"], m["biref"], bi_lo, bi_hi, 0.005)
+        x = max(x, 0.05)
+        f *= x
+        reasons.append(f"birefringence {m['biref']} {'fits' if x >= 0.99 else 'is near' if x > 0.05 else 'does not fit'} {bi_lo}-{bi_hi}")
+    return f, reasons
+
+
+def species_hints(m):
+    hints = set()
+    for o in m.get("observations", []):
+        hints.update(OBS[o][1].get("s", ()))
+    for s in m.get("spectro", []):
+        hints.update(SPECTRO_HINT.get(s, ()))
+    return hints
+
+
 def identify(m, derived_sg=None):
-    """Score gem species from RI / SG / thermal readings."""
+    """Score gem species from RI / SG / optical / thermal readings."""
     ri = m.get("ri")
     sg = m.get("sg")
     sg_tol = 0.15
@@ -392,11 +598,12 @@ def identify(m, derived_sg=None):
         sg = [derived_sg, derived_sg]
         sg_tol = 0.45
         sg_note = " (calculated from your weight and size, low precision)"
-    if not ri and not sg:
+    if not ri and not sg and not m.get("ri_otl") and "biref" not in m:
         return []
 
     t_cls = thermal_class(m.get("thermal"))
     mo = m.get("moissanite")
+    hints = species_hints(m)
     out = []
     for name, ri_lo, ri_hi, sg_lo, sg_hi, th, aliases in SPECIES:
         parts, weights, reasons = [], [], []
@@ -404,11 +611,19 @@ def identify(m, derived_sg=None):
             s = range_match(ri[0], ri[1], ri_lo, ri_hi, 0.03)
             parts.append(s); weights.append(1.0)
             reasons.append(f"RI {ri[0]} {'fits' if s >= 0.99 else 'is near' if s > 0 else 'does not fit'} {ri_lo}-{ri_hi}")
+        elif m.get("ri_otl"):
+            s = 1.0 if ri_lo >= 1.79 else 0.0
+            parts.append(s); weights.append(1.0)
+            reasons.append(f"over-the-limit RI {'fits' if s else 'does not fit'}")
         if sg:
             s = range_match(sg[0], sg[1], sg_lo, sg_hi, sg_tol)
             parts.append(s); weights.append(0.8)
-            reasons.append(f"SG {sg[0]}{sg_note} {'fits' if s >= 0.99 else 'is near' if s > 0 else 'does not fit'} {sg_lo}-{sg_hi}")
-        score = sum(p * w for p, w in zip(parts, weights)) / sum(weights)
+            reasons.append(f"SG {round(sg[0], 2)}{sg_note} {'fits' if s >= 0.99 else 'is near' if s > 0 else 'does not fit'} {sg_lo}-{sg_hi}")
+        score = sum(p * w for p, w in zip(parts, weights)) / sum(weights) if weights else 0.6
+
+        f, why = optic_factor(name, m)
+        score *= f
+        reasons += why
 
         if t_cls:
             if th == "high":
@@ -416,7 +631,7 @@ def identify(m, derived_sg=None):
             else:
                 f = {"high": 0.15, "mid": 1.0, "low": 1.0}[t_cls]
             if f != 1.0:
-                reasons.append(f"thermal reading {'supports' if f > 1 else 'conflicts with' if f < 0.5 else 'is only weakly consistent with'} this material")
+                reasons.append(f"thermal reading {'conflicts with' if f < 0.5 else 'is only weakly consistent with'} this material")
             score *= f
         if mo:
             is_m = name == "Moissanite"
@@ -425,6 +640,9 @@ def identify(m, derived_sg=None):
                 reasons.append("moissanite tester result conflicts")
             else:
                 reasons.append("moissanite tester result agrees")
+        if name in hints:
+            score = min(1.0, score * 1.25)
+            reasons.append("inclusion / spectrum evidence points here")
         if score >= 0.2:
             out.append({"name": name, "score": round(score * 100), "reasons": reasons, "simulant": name in SIMULANTS})
     out.sort(key=lambda x: -x["score"])
@@ -501,10 +719,11 @@ def finish_dist(d):
 
 
 def apply_evidence(rep, m, lead_type):
-    """Adjust treatment / authenticity odds with the owner's instrument and loupe evidence."""
+    """Adjust treatment / authenticity odds with the client's instrument and loupe evidence."""
     evidence = []
     obs = m.get("observations", [])
     t_mult, a_mult = {}, {}
+    lt = f"{m.get('claim', '')} {lead_type}".lower()
 
     def mult(store, key, val):
         store[key] = store.get(key, 1.0) * val
@@ -518,10 +737,48 @@ def apply_evidence(rep, m, lead_type):
         evidence.append(f"{label}: {effect_text}.")
 
     # thermal tester vs a diamond claim
-    claim_text = f"{m.get('claim', '')} {lead_type}".lower()
-    if "thermal" in m and "diamond" in claim_text and thermal_class(m["thermal"]) == "low":
+    if "thermal" in m and "diamond" in lt and thermal_class(m["thermal"]) == "low":
         mult(a_mult, "Glass / imitation", 8)
         evidence.append("Stone is called a diamond but the thermal tester reads low: strongly indicates a simulant (CZ, glass).")
+
+    spec = m.get("spectro", [])
+    is_blue = "blue" in lt or "sapphire" in lt and "pink" not in lt and "yellow" not in lt
+    if "cobalt" in spec:
+        mult(a_mult, "Synthetic / lab-grown", 4); mult(a_mult, "Glass / imitation", 4); mult(a_mult, "Natural", 0.25)
+        evidence.append("Cobalt absorption bands: typical of blue synthetic spinel or cobalt glass (natural cobalt spinel is rare).")
+    if m.get("chelsea") in ("red", "pink") and is_blue:
+        mult(a_mult, "Synthetic / lab-grown", 3); mult(a_mult, "Glass / imitation", 3); mult(a_mult, "Natural", 0.3)
+        evidence.append("Blue stone turns red under the Chelsea filter: points to cobalt (synthetic spinel or glass), not natural sapphire.")
+    if "iron_450" in spec and ("sapphire" in lt or "corundum" in lt):
+        mult(a_mult, "Natural", 2); mult(a_mult, "Synthetic / lab-grown", 0.4)
+        evidence.append("Iron 450 nm band in a sapphire: supports natural (usually missing in flame-fusion synthetics).")
+    if m.get("uv_short") == "white / chalky" and ("sapphire" in lt or "corundum" in lt):
+        mult(a_mult, "Synthetic / lab-grown", 1.6); mult(t_mult, "Heated", 1.6)
+        evidence.append("Chalky short-wave UV in sapphire: seen in synthetic and in heated blue sapphire.")
+    if m.get("uv_long") == "orange" and "yellow" in lt and "sapphire" in lt:
+        mult(a_mult, "Natural", 1.5)
+        evidence.append("Orange long-wave UV in yellow sapphire: typical of Sri Lankan metamorphic stones.")
+
+    lab = (m.get("lab_text") or "").lower()
+    if lab:
+        if "3309" in lab:
+            mult(t_mult, "Heated", 3); mult(t_mult, "Unheated", 0.4)
+            evidence.append("FTIR 3309 cm-1 series reported: commonly linked to heated sapphire.")
+        if re.search(r"kaolinite|boehmite|diaspore|gibbsite", lab):
+            mult(t_mult, "Unheated", 4); mult(t_mult, "Heated", 0.25)
+            evidence.append("FTIR shows hydrous minerals (kaolinite / boehmite / diaspore): these are destroyed by strong heating, supports no heat.")
+        if re.search(r"\bsiv\b|737\s*nm", lab):
+            mult(a_mult, "Synthetic / lab-grown", 10); mult(a_mult, "Natural", 0.1)
+            evidence.append("SiV 737 nm photoluminescence: hallmark of CVD lab-grown diamond.")
+        if re.search(r"beryllium|\bbe\b.*ppm|be-diffus", lab):
+            mult(t_mult, "Diffusion-treated / filled", 8)
+            evidence.append("Beryllium reported in LA-ICP-MS: indicates Be-diffusion treatment.")
+        if re.search(r"lead|pb\b", lab) and "glass" in lab:
+            mult(t_mult, "Diffusion-treated / filled", 8)
+            evidence.append("Lead glass reported: indicates lead-glass filled stone.")
+        if re.search(r"resin|polymer|epoxy|oil", lab):
+            mult(t_mult, "Diffusion-treated / filled", 3)
+            evidence.append("Resin / polymer / oil filler reported (FTIR/Raman): clarity enhancement.")
 
     treat = canon(rep["treatment"], "t")
     auth = canon(rep["authenticity"], "a")
@@ -539,15 +796,67 @@ def apply_evidence(rep, m, lead_type):
     return treat, auth, evidence, changed
 
 
+def conflicts(m, ai_species_row):
+    """Warn when the client's optical readings contradict the AI's visual identification."""
+    if not ai_species_row:
+        return []
+    name = ai_species_row[0]
+    optic = OPTICS.get(name, ("SR",))[0]
+    out = []
+    pol = m.get("polariscope")
+    if pol == "SR" and optic in ("U", "B"):
+        out.append(f"The photos look like {name}, but the polariscope shows SR (stays dark). {name} is doubly refractive, "
+                   "so either it was viewed along the optic axis (re-test in another direction) or it is a different "
+                   "material such as spinel (incl. synthetic), garnet or glass.")
+    if pol == "DR" and optic == "SR" and name not in ADR_PRONE:
+        out.append(f"The photos look like {name}, but the polariscope shows DR (blinks). {name} is singly refractive: "
+                   "check for strain (ADR) or consider a doubly refractive material.")
+    if m.get("pleochroism") == "trichroic" and optic == "U":
+        out.append(f"Three pleochroic colours are not possible in uniaxial {name}: re-check, or consider tanzanite, iolite, andalusite.")
+    ri = m.get("ri")
+    if ri and range_match(ri[0], ri[1], ai_species_row[1], ai_species_row[2], 0.03) == 0:
+        out.append(f"The RI {ri[0]}" + (f"-{ri[1]}" if ri[1] != ri[0] else "") + f" does not fit {name} ({ai_species_row[1]}-{ai_species_row[2]}). Trust the RI over the photo.")
+    sg = m.get("sg")
+    if sg and range_match(sg[0], sg[1], ai_species_row[3], ai_species_row[4], 0.15) == 0:
+        out.append(f"The SG {sg[0]} does not fit {name} ({ai_species_row[3]}-{ai_species_row[4]}). Trust the SG over the photo.")
+    return out
+
+
+def evidence_level(m, n_images, n_frames):
+    """How much evidence the conclusion rests on (0-100) and which tests are still missing (codes)."""
+    pts, have, missing = 0, [], []
+    checks = [
+        ("photos", n_images >= 1, 10),
+        ("views", n_images >= 3 or n_frames > 0, 5),
+        ("ri", bool(m.get("ri") or m.get("ri_otl")), 20),
+        ("sg", bool(m.get("sg")), 12),
+        ("polariscope", bool(m.get("polariscope") or m.get("optic_figure")), 10),
+        ("optical", bool(m.get("pleochroism") or m.get("chelsea") or m.get("spectro")), 6),
+        ("uv", bool(m.get("uv_long") or m.get("uv_short")), 4),
+        ("magnification", bool(m.get("observations")), 10),
+        ("size", bool(m.get("weight_ct") or m.get("length_mm")), 3),
+        ("lab", bool(m.get("lab_text")), 20),
+    ]
+    for code, cond, p in checks:
+        if cond:
+            pts += p
+            have.append(code)
+        else:
+            missing.append(code)
+    pts = min(pts, 100)
+    level = "A" if pts >= 75 else "B" if pts >= 50 else "C" if pts >= 30 else "D"
+    return {"score": pts, "level": level, "have": have, "missing": missing}
+
+
 # --------------------------------------------------------------------------
 # Image preparation
 # --------------------------------------------------------------------------
-def prepare_image(file_storage):
+def prepare_image(file_storage, side=1600):
     img = Image.open(file_storage.stream)
     img = ImageOps.exif_transpose(img).convert("RGB")
-    img.thumbnail((1600, 1600))
+    img.thumbnail((side, side))
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=90)
+    img.save(buf, format="JPEG", quality=88)
     return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
@@ -567,16 +876,14 @@ def err_text(resp):
 
 def oai_caller(url, token_param="max_completion_tokens", use_temp=True, headers=None):
     """Build a caller for any OpenAI-compatible chat completions API."""
-    def call(key, model, b64, user_text, timeout=TIMEOUT):
+    def call(key, model, images, user_text, timeout=TIMEOUT, system=SYSTEM_PROMPT):
+        content = [{"type": "text", "text": user_text}]
+        for b64 in images:
+            content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}})
         payload = {
-            "model": model, token_param: 8000,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": [
-                    {"type": "text", "text": user_text},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
-                ]},
-            ],
+            "model": model, token_param: 12000,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": content if images else user_text}],
         }
         if use_temp:
             payload["temperature"] = 0.2
@@ -603,7 +910,7 @@ call_xai = oai_caller("https://api.x.ai/v1/chat/completions")
 call_openai = oai_caller("https://api.openai.com/v1/chat/completions", use_temp=False)
 call_mistral = oai_caller("https://api.mistral.ai/v1/chat/completions", token_param="max_tokens")
 call_openrouter = oai_caller("https://openrouter.ai/api/v1/chat/completions", token_param="max_tokens",
-                             headers={"X-Title": "Yasiru Gems Gem Tracker"})
+                             headers={"X-Title": "Yasiru Gems Lab"})
 call_github = oai_caller("https://models.github.ai/inference/chat/completions", token_param="max_tokens")
 call_custom = oai_caller(custom_url, token_param="max_tokens")
 
@@ -637,15 +944,13 @@ def models_for(name, cfg):
     return models
 
 
-def call_gemini(key, model, b64, user_text, timeout=TIMEOUT):
+def call_gemini(key, model, images, user_text, timeout=TIMEOUT, system=SYSTEM_PROMPT):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    parts = [{"text": user_text}] + [{"inlineData": {"mimeType": "image/jpeg", "data": b}} for b in images]
     body = {
-        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [
-            {"text": user_text},
-            {"inlineData": {"mimeType": "image/jpeg", "data": b64}},
-        ]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16000, "responseMimeType": "application/json"},
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 20000, "responseMimeType": "application/json"},
     }
     r = requests.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"},
                       json=body, timeout=timeout)
@@ -655,14 +960,11 @@ def call_gemini(key, model, b64, user_text, timeout=TIMEOUT):
     return 200, "".join(p.get("text", "") for p in parts if not p.get("thought")), ""
 
 
-def call_anthropic(key, model, b64, user_text, timeout=TIMEOUT):
-    body = {
-        "model": model, "max_tokens": 8000, "system": SYSTEM_PROMPT,
-        "messages": [{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
-            {"type": "text", "text": user_text},
-        ]}],
-    }
+def call_anthropic(key, model, images, user_text, timeout=TIMEOUT, system=SYSTEM_PROMPT):
+    content = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b}} for b in images]
+    content.append({"type": "text", "text": user_text})
+    body = {"model": model, "max_tokens": 12000, "system": system,
+            "messages": [{"role": "user", "content": content}]}
     r = requests.post("https://api.anthropic.com/v1/messages",
                       headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
                       json=body, timeout=timeout)
@@ -722,6 +1024,14 @@ def norm_dist(items, name_key):
     return {k: v * 100.0 / total for k, v in out.items()} if total > 0 else {}
 
 
+def dict_list(v, keys, limit=10):
+    out = []
+    for it in (v if isinstance(v, list) else [])[:limit]:
+        if isinstance(it, dict):
+            out.append({k: as_str(it.get(k)) for k in keys})
+    return out
+
+
 def normalize_report(rep):
     gems = []
     for i, g in enumerate(rep.get("gems") or [], 1):
@@ -732,8 +1042,8 @@ def normalize_report(rep):
             origin = [origin] if origin else []
         gems.append({
             "id": to_int(g.get("id"), i),
-            "type": as_str(g.get("type")), "color": as_str(g.get("color")),
-            "shape_cut": as_str(g.get("shape_cut")),
+            "type": as_str(g.get("type")), "type_local": as_str(g.get("type_local")),
+            "color": as_str(g.get("color")), "shape_cut": as_str(g.get("shape_cut")),
             "estimated_origin": [as_str(o) for o in origin],
             "origin_confidence": as_str(g.get("origin_confidence")),
             "authenticity": as_str(g.get("authenticity")),
@@ -761,11 +1071,26 @@ def normalize_report(rep):
                 visual = {"min_ct": round(float(lo), 2), "max_ct": round(float(hi), 2), "basis": as_str(vw.get("basis"))}
         except Exception:
             visual = None
+    ident = rep.get("identification") if isinstance(rep.get("identification"), dict) else {}
+    it = rep.get("interpreted_tests") if isinstance(rep.get("interpreted_tests"), dict) else {}
+    qs = []
+    for i, q in enumerate((rep.get("follow_up_questions") or [])[:6], 1):
+        if isinstance(q, dict) and as_str(q.get("question")).strip():
+            opts = q.get("options") if isinstance(q.get("options"), list) else []
+            qs.append({"id": as_str(q.get("id")) or f"q{i}", "question": as_str(q.get("question")),
+                       "why": as_str(q.get("why")), "options": [as_str(o) for o in opts[:6] if as_str(o).strip()]})
     return {
         "image_quality": as_str(rep.get("image_quality")),
         "total_count": to_int(rep.get("total_count"), len(gems)),
         "count_confidence": as_str(rep.get("count_confidence")),
         "stone_points": points,
+        "identification": {
+            "species": as_str(ident.get("species")), "variety": as_str(ident.get("variety")),
+            "name_local": as_str(ident.get("name_local")),
+            "confidence": max(0, min(100, to_int(ident.get("confidence_percent"), 0))),
+            "reasoning": as_str(ident.get("reasoning")),
+        },
+        "interpreted": {k: as_str(it.get(k)).strip() for k in ("polariscope", "optic_figure", "pleochroism", "chelsea", "ri", "sg")},
         "gems": gems,
         "origin": norm_dist(rep.get("lot_origin_probabilities"), "country"),
         "treatment": norm_dist(rep.get("lot_treatment_probabilities"), "status"),
@@ -773,16 +1098,22 @@ def normalize_report(rep):
         "summary_by_type": [x for x in (rep.get("summary_by_type") or []) if isinstance(x, dict)],
         "summary_by_colour": [x for x in (rep.get("summary_by_colour") or []) if isinstance(x, dict)],
         "visual_weight": visual,
+        "tests_used": dict_list(rep.get("tests_used"), ("method", "finding", "meaning"), 12),
+        "questions": qs,
+        "lab_tests": [as_str(x) for x in (rep.get("recommended_lab_tests") or [])[:6] if as_str(x).strip()]
+        if isinstance(rep.get("recommended_lab_tests"), list) else [],
         "overall_remarks": as_str(rep.get("overall_remarks")),
+        "conclusion": as_str(rep.get("conclusion")),
     }
 
 
 # --------------------------------------------------------------------------
 # One provider: rotate keys, fall back through models
 # --------------------------------------------------------------------------
-def run_provider(name, b64, user_text, stop_at=None):
+def run_provider(name, images, user_text, stop_at=None):
     cfg = PROVIDERS[name]
     caller = CALLERS[name]
+    images = images[:cfg.get("max_images", 5)]
     started = time.time()
     stop_at = stop_at or started + DEADLINE
     keys = cfg["keys"][:]
@@ -802,7 +1133,7 @@ def run_provider(name, b64, user_text, stop_at=None):
                 out_of_time = True
                 break
             try:
-                status, text, err = caller(key, model, b64, user_text, timeout=min(TIMEOUT, left - 2))
+                status, text, err = caller(key, model, images, user_text, timeout=min(TIMEOUT, left - 2))
             except requests.exceptions.JSONDecodeError:
                 last_err = "the service sent a non-JSON reply: the key/token is probably wrong or has no access"
                 continue
@@ -822,7 +1153,7 @@ def run_provider(name, b64, user_text, stop_at=None):
                     last_err = "model did not return valid JSON"
                     continue
                 return {"provider": name, "label": cfg["label"], "model": model, "ok": True,
-                        "report": rep, "ms": int((time.time() - started) * 1000)}
+                        "report": rep, "ms": int((time.time() - started) * 1000), "images_used": len(images)}
             last_err = f"{status}: {err}"
             if status == 404:
                 model_missing = True
@@ -854,7 +1185,33 @@ def merge_dist(dists, top=8):
     return [{"name": n, "percent": round(v, 1)} for n, v in items]
 
 
-def build_consensus(results, manual):
+def vote_identity(ok):
+    """Majority vote on the species across the AI panel."""
+    votes = []
+    for r in ok:
+        idt = r["report"]["identification"]
+        txt = f"{idt['variety']} {idt['species']}"
+        if not txt.strip() and r["report"]["gems"]:
+            txt = r["report"]["gems"][0]["type"]
+        row = species_from_text(txt)
+        votes.append((row[0] if row else (idt["species"] or "Unknown"), r))
+    if not votes:
+        return None, 0, 0
+    c = Counter(v[0] for v in votes)
+    name, n = c.most_common(1)[0]
+    return name, n, len(votes)
+
+
+def vote_interpreted(ok, key, allowed):
+    vals = [r["report"]["interpreted"].get(key, "") for r in ok]
+    vals = [v for v in vals if v in allowed]
+    if not vals:
+        return None
+    v, n = Counter(vals).most_common(1)[0]
+    return v if n * 2 >= len(vals) else None
+
+
+def build_consensus(results, manual, n_images=1, n_frames=0):
     ok = [r for r in results if r["ok"]]
     counts = [r["report"]["total_count"] for r in ok]
     consensus = int(round(statistics.median(counts)))
@@ -869,13 +1226,19 @@ def build_consensus(results, manual):
     else:
         agreement = "low"
 
+    voted_species, votes_for, votes_total = vote_identity(ok)
+
     def rank(r):
         pref = PREFERENCE.index(r["provider"]) if r["provider"] in PREFERENCE else 9
-        return (abs(r["report"]["total_count"] - consensus), pref)
+        idt = r["report"]["identification"]
+        row = species_from_text(f"{idt['variety']} {idt['species']}")
+        same = 0 if (row and row[0] == voted_species) or idt["species"] == voted_species else 1
+        return (same, abs(r["report"]["total_count"] - consensus), pref)
 
     ranked = sorted(ok, key=rank)
     lead = ranked[0]
-    with_points = [r for r in ranked if r["report"]["stone_points"]]
+    with_points = [r for r in sorted(ok, key=lambda r: abs(r["report"]["total_count"] - consensus))
+                   if r["report"]["stone_points"]]
     exact = [r for r in with_points if len(r["report"]["stone_points"]) == consensus]
     point_src = (exact or with_points or [None])[0]
     rep = lead["report"]
@@ -886,11 +1249,35 @@ def build_consensus(results, manual):
     treatment = merge_dist([r["report"]["treatment"] for r in ok])
     authenticity = merge_dist([r["report"]["authenticity"] for r in ok])
 
-    lead_type = rep["gems"][0]["type"] if rep["gems"] else ""
-    instrument = {"provided": bool(manual)}
+    lead_type = rep["identification"]["variety"] or (rep["gems"][0]["type"] if rep["gems"] else "")
+
+    # fill gaps in the structured readings with what the AI understood from the free text
+    manual = dict(manual or {})
+    from_text = {}
+    if manual.get("free_text") or manual.get("answers"):
+        for key, allowed in (("polariscope", POLARISCOPE), ("optic_figure", OPTIC_FIGURE[:2]),
+                             ("pleochroism", PLEOCHROISM), ("chelsea", CHELSEA)):
+            if key not in manual:
+                v = vote_interpreted(ok, key, allowed)
+                if v:
+                    manual[key] = v
+                    from_text[key] = v
+        if "ri" not in manual:
+            ri = [x for x in _floats(rep["interpreted"].get("ri", "")) if 1.3 <= x <= 3.0]
+            if ri:
+                manual["ri"] = [min(ri), max(ri)]
+                from_text["ri"] = manual["ri"]
+        if "sg" not in manual:
+            sg = [x for x in _floats(rep["interpreted"].get("sg", "")) if 1.0 <= x <= 8.0]
+            if sg:
+                manual["sg"] = [min(sg), max(sg)]
+                from_text["sg"] = manual["sg"]
+
+    instrument = {"provided": bool(manual), "from_text": from_text}
+    final_species = voted_species or ""
+    id_source = "ai"
 
     if manual:
-        # derived SG from weight + size
         L, W, D = (manual.get(k) for k in ("length_mm", "width_mm", "depth_mm"))
         derived_sg = None
         if manual.get("weight_ct") and L and W and D:
@@ -903,13 +1290,15 @@ def build_consensus(results, manual):
         species_row = None
         if top and top["score"] >= 60:
             species_row = next((s for s in SPECIES if s[0] == top["name"]), None)
+            final_species = top["name"]
+            id_source = "instruments"
+        ai_row = species_from_text(lead_type) or species_from_text(voted_species or "")
         if not species_row:
-            species_row = species_from_text(manual.get("claim", "")) or species_from_text(lead_type)
+            species_row = species_from_text(manual.get("claim", "")) or ai_row
 
         treat, auth, evidence, changed = apply_evidence(
             {"treatment": treatment, "authenticity": authenticity}, manual, lead_type)
 
-        # a simulant / moissanite identified from readings
         if top and top["score"] >= 60:
             auth = auth or canon(authenticity, "a") or {k: 33.3 for k in AUTH_KEYS}
             floor = {k: max(v, 1.0) for k, v in auth.items()}
@@ -940,8 +1329,13 @@ def build_consensus(results, manual):
             "thermal_note": thermal_note(manual),
             "candidates": candidates,
             "evidence": evidence,
+            "conflicts": conflicts(manual, ai_row),
             "weight": compute_weight(manual, species_row),
             "identity": top["name"] if top and top["score"] >= 60 else "",
+            "readings": {k: manual[k] for k in ("ri", "ri_otl", "biref", "sg", "polariscope", "optic_figure",
+                                                 "pleochroism", "chelsea", "spectro", "uv_long", "uv_short",
+                                                 "thermal", "moissanite", "weight_ct", "length_mm", "width_mm",
+                                                 "depth_mm", "shape") if k in manual},
             "caution": ("Thermal diamond testers only separate diamond and moissanite from other materials. "
                         "They cannot tell natural from lab-grown diamond and cannot detect heating of coloured stones. "
                         "RI and SG readings narrow down the material but do not prove origin or treatment."),
@@ -951,6 +1345,26 @@ def build_consensus(results, manual):
         treatment = finish_dist(t2) if t2 else treatment
         authenticity = finish_dist(a2) if a2 else authenticity
 
+    ev = evidence_level(manual, n_images, n_frames)
+    ai_conf = [r["report"]["identification"]["confidence"] for r in ok if r["report"]["identification"]["confidence"]]
+    agree = votes_for / votes_total if votes_total else 0
+    # identification confidence: AI self-rating, panel agreement, instrument confirmation
+    id_conf = (statistics.mean(ai_conf) if ai_conf else 50) * (0.6 + 0.4 * agree)
+    if id_source == "instruments":
+        id_conf = max(id_conf, min(97, 70 + (instrument["candidates"][0]["score"] - 60) * 0.6))
+    if instrument.get("conflicts"):
+        id_conf *= 0.7
+    id_conf = round(min(id_conf, 40 + ev["score"] * 0.6))
+
+    # follow-up questions: lead's first, then other models' unique ones
+    questions, seen = [], set()
+    for r in [lead] + [x for x in ranked if x is not lead]:
+        for q in r["report"]["questions"]:
+            k = re.sub(r"\W+", "", q["question"].lower())[:40]
+            if k and k not in seen and len(questions) < 6:
+                seen.add(k)
+                questions.append(q)
+
     return {
         "consensus_count": consensus,
         "count_agreement": agreement,
@@ -958,6 +1372,16 @@ def build_consensus(results, manual):
         "image_quality": rep["image_quality"],
         "stone_points": point_src["report"]["stone_points"] if point_src else [],
         "points_from": point_src["label"] if point_src else "",
+        "identification": {
+            "species": final_species or rep["identification"]["species"],
+            "variety": rep["identification"]["variety"] or lead_type,
+            "name_local": rep["identification"]["name_local"],
+            "reasoning": rep["identification"]["reasoning"],
+            "confidence": id_conf,
+            "source": id_source,
+            "panel_agreement": f"{votes_for}/{votes_total}",
+        },
+        "evidence": ev,
         "gems": rep["gems"],
         "summary_by_type": rep["summary_by_type"],
         "summary_by_colour": rep["summary_by_colour"],
@@ -966,9 +1390,15 @@ def build_consensus(results, manual):
         "authenticity": authenticity,
         "visual_weight": visual,
         "instrument": instrument,
+        "tests_used": rep["tests_used"],
+        "questions": questions,
+        "lab_tests": rep["lab_tests"],
         "overall_remarks": rep["overall_remarks"],
+        "conclusion": rep["conclusion"],
         "lead": lead["label"],
         "models_used": len(ok),
+        "images": n_images,
+        "video_frames": n_frames,
     }
 
 
@@ -984,33 +1414,50 @@ def index():
 def health():
     return jsonify({
         "ok": True,
+        "languages": LANGUAGES,
         "providers": {n: {"label": c["label"], "keys": len(c["keys"]), "models": c["models"] or ["(automatic)"]}
                       for n, c in PROVIDERS.items()},
     })
 
 
+def active_providers():
+    return [n for n, c in PROVIDERS.items() if c["keys"]]
+
+
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
-    active = [n for n, c in PROVIDERS.items() if c["keys"]]
+    active = active_providers()
     if not active:
         return jsonify(error="No AI API keys are configured on the server."), 500
 
-    file = request.files.get("image")
-    if not file:
+    files = request.files.getlist("images") or ([request.files["image"]] if request.files.get("image") else [])
+    files = [f for f in files if f and f.filename is not None][:MAX_IMAGES]
+    if not files:
         return jsonify(error="No image was received."), 400
-    try:
-        b64 = prepare_image(file)
-    except Exception:
-        return jsonify(error="Could not read the image. Please try a JPG or PNG file."), 400
+    side = 1600 if len(files) <= 3 else 1280
+    images = []
+    for f in files:
+        try:
+            images.append(prepare_image(f, side))
+        except Exception:
+            pass
+    if not images:
+        return jsonify(error="Could not read the images. Please use JPG or PNG photos, or MP4/MOV videos."), 400
+    n_frames = min(to_int(request.form.get("video_frames"), 0), len(images))
 
+    lang_code = request.form.get("lang", "en")
+    lang = LANGUAGES.get(lang_code, "English")
     manual = parse_manual(request.form.get("manual", ""))
-    user_text = USER_PROMPT + manual_to_text(manual)
+    user_text = USER_PROMPT.format(n=len(images), lang=lang)
+    if n_frames:
+        user_text += f" The last {n_frames} image(s) are frames taken from the client's video(s) of the stone."
+    user_text += manual_to_text(manual)
 
     results = []
     started = time.time()
     stop_at = started + DEADLINE
     pool = ThreadPoolExecutor(max_workers=len(active))
-    pending = {pool.submit(run_provider, n, b64, user_text, stop_at) for n in active}
+    pending = {pool.submit(run_provider, n, images, user_text, stop_at) for n in active}
     grace_until = None
     try:
         while pending:
@@ -1040,6 +1487,8 @@ def analyze():
     panel = [{
         "provider": r["provider"], "label": r["label"], "model": r["model"], "ok": r["ok"],
         "count": r["report"]["total_count"] if r["ok"] else None,
+        "species": (r["report"]["identification"]["variety"] or r["report"]["identification"]["species"]) if r["ok"] else "",
+        "images_used": r.get("images_used"),
         "error": r.get("error", ""), "seconds": round(r["ms"] / 1000, 1),
     } for r in sorted(results, key=lambda r: PREFERENCE.index(r["provider"]))]
 
@@ -1047,7 +1496,43 @@ def analyze():
         detail = "; ".join(f"{p['label']}: {p['error']}" for p in panel) or "no response"
         return jsonify(error=f"All AI models failed. {detail}", panel=panel), 502
 
-    return jsonify(report=build_consensus(results, manual), panel=panel)
+    report = build_consensus(results, manual, len(images), n_frames)
+    report["lang"] = lang_code
+    report["report_no"] = "YGL-" + time.strftime("%Y%m%d-%H%M%S") + f"-{random.randint(100, 999)}"
+    return jsonify(report=report, panel=panel)
+
+
+_ui_cache = {}
+
+
+@app.route("/api/ui-text", methods=["POST"])
+def ui_text():
+    """Translate the interface labels into the chosen language with the first working text model."""
+    body = request.get_json(silent=True) or {}
+    code = body.get("lang", "")
+    strings = body.get("strings") or {}
+    if code not in LANGUAGES or not isinstance(strings, dict) or not strings:
+        return jsonify(error="bad request"), 400
+    strings = {str(k)[:60]: str(v)[:300] for k, v in list(strings.items())[:400]}
+    cache_key = code + ":" + str(hash(json.dumps(strings, sort_keys=True)))
+    if cache_key in _ui_cache:
+        return jsonify(strings=_ui_cache[cache_key])
+    system = UI_PROMPT.format(lang=LANGUAGES[code])
+    for name in [p for p in PREFERENCE if PROVIDERS[p]["keys"]]:
+        cfg = PROVIDERS[name]
+        for model in models_for(name, cfg)[:2]:
+            try:
+                status, text, _ = CALLERS[name](random.choice(cfg["keys"]), model, [],
+                                                json.dumps(strings, ensure_ascii=False), timeout=45, system=system)
+                if status != 200:
+                    continue
+                out = extract_json(text)
+                out = {k: as_str(out.get(k)) or v for k, v in strings.items()}
+                _ui_cache[cache_key] = out
+                return jsonify(strings=out)
+            except Exception:
+                continue
+    return jsonify(error="translation unavailable"), 502
 
 
 if __name__ == "__main__":
