@@ -282,7 +282,8 @@ function setBusy(on){
   $('analyzeBtn').textContent = on ? T('analyzing') : T('btn_analyze');
   $('busytext').classList.toggle('on',on); $('progress').classList.toggle('on',on);
 }
-async function analyze(){
+async function analyze(retried){
+  if(retried!==true) retried=false;
   if(!media.length){ showError(T('need_media')); return; }
   clearError(); setBusy(true);
   const fd=new FormData();
@@ -294,6 +295,13 @@ async function analyze(){
   try{
     const r=await fetch('/api/analyze',{method:'POST',body:fd});
     let data; try{ data=await r.json(); }catch(_){ throw new Error(T('err_server',{s:r.status})); }
+    if(!r.ok && data.busy && !retried){
+      // every AI service was busy: wait a little and try once more automatically
+      $('busytext').textContent = data.error.split('Details:')[0] + ' (auto-retry in 20 s)';
+      await new Promise(ok=>setTimeout(ok,20000));
+      $('busytext').textContent = T('busy');
+      return await analyze(true);
+    }
     if(!r.ok) throw new Error(data.error || T('err_server',{s:r.status}));
     data.when = new Date().toISOString();
     lastData=data; answers={}; qaHistory=manual.answers.slice(-10);
@@ -303,8 +311,8 @@ async function analyze(){
   }catch(e){ showError(e.message); }
   finally{ setBusy(false); }
 }
-$('analyzeBtn').addEventListener('click', analyze);
-$('reBtn').addEventListener('click', analyze);
+$('analyzeBtn').addEventListener('click', ()=>analyze(false));
+$('reBtn').addEventListener('click', ()=>analyze(false));
 
 /* ---------------- follow-up questions ---------------- */
 function renderQuestions(qs){
