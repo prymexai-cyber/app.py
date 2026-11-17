@@ -77,7 +77,8 @@ PROVIDERS = {
     "gemini": {
         "label": "Gemini",
         "keys": env_keys("GEMINI_API_KEYS", "GEMINI_API_KEY", "GOOGLE_API_KEY"),
-        "models": model_list("GEMINI_MODEL", "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-pro"),
+        "models": model_list("GEMINI_MODEL", "gemini-flash-latest", "gemini-2.5-flash", "gemini-flash-lite-latest",
+                             "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.5-pro"),
         "max_images": 10,
     },
     "anthropic": {
@@ -89,8 +90,10 @@ PROVIDERS = {
     "groq": {
         "label": "Groq",
         "keys": env_keys("GROQ_API_KEYS", "GROQ_API_KEY"),
-        "models": model_list("GROQ_MODEL", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct"),
-        "max_images": 5,
+        "models": model_list("GROQ_MODEL", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct",
+                             "meta-llama/llama-4-maverick-17b-128e-instruct"),
+        "max_images": 3,
+        "timeout": 40,
     },
     "xai": {
         "label": "xAI Grok",
@@ -117,7 +120,8 @@ PROVIDERS = {
         "keys": env_keys("OPENROUTER_API_KEYS", "OPENROUTER_API_KEY"),
         "models": model_list("OPENROUTER_MODEL"),
         "try_all_models": True,
-        "max_images": 4,
+        "max_images": 3,
+        "timeout": 30,
     },
     "github": {
         "label": "GitHub Models",
@@ -125,6 +129,7 @@ PROVIDERS = {
         "models": model_list("GITHUB_MODEL", "openai/gpt-4.1-mini", "openai/gpt-4o-mini"),
         "try_all_models": True,
         "max_images": 6,
+        "timeout": 40,
     },
     "custom": {
         # any OpenAI-compatible service (Together, NVIDIA NIM, Fireworks, DeepInfra ...)
@@ -1221,7 +1226,24 @@ def normalize_report(rep):
 # --------------------------------------------------------------------------
 # One provider: rotate keys, fall back through models
 # --------------------------------------------------------------------------
+RETRYABLE = (408, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529)
+
+
+def image_limit(err):
+    """Read 'supports up to 3 images' style limits out of an error message."""
+    m = re.search(r"(?:up to|maximum of|max(?:imum)?|at most|no more than)\s*(\d+)\s*images?", err or "", re.I)
+    if m:
+        return max(1, int(m.group(1)))
+    if re.search(r"too many images|image limit", err or "", re.I):
+        return 1
+    return None
+
+
 def run_provider(name, images, user_text, stop_at=None):
+    """Try every model and key of one provider until one answers.
+
+    Busy / rate-limited / server errors move on to the next key and then the next model,
+    an image-count limit is obeyed automatically, and a bad key is skipped for later models."""
     cfg = PROVIDERS[name]
     caller = CALLERS[name]
     images = images[:cfg.get("max_images", 5)]
@@ -1229,47 +1251,63 @@ def run_provider(name, images, user_text, stop_at=None):
     stop_at = stop_at or started + DEADLINE
     keys = cfg["keys"][:]
     random.shuffle(keys)
+    bad_keys = set()
     last_err = "unknown error"
+    per_call = cfg.get("timeout", TIMEOUT)
 
     models = models_for(name, cfg)
     last_model = models[0] if models else "auto"
     for model in models:
         last_model = model
-        model_missing = False
-        out_of_time = False
         for key in keys:
-            left = stop_at - time.time()
-            if left < 8:
-                last_err = last_err if last_err != "unknown error" else "ran out of time"
-                out_of_time = True
-                break
-            try:
-                status, text, err = caller(key, model, images, user_text, timeout=min(TIMEOUT, left - 2))
-            except requests.exceptions.JSONDecodeError:
-                last_err = "the service sent a non-JSON reply: the key/token is probably wrong or has no access"
+            if key in bad_keys:
                 continue
-            except requests.Timeout:
-                last_err = "timed out"
-                continue
-            except requests.RequestException as e:
-                last_err = f"network error: {type(e).__name__}"
-                continue
-            except Exception as e:
-                last_err = f"bad response: {type(e).__name__}"
-                continue
-            if status == 200:
+            tries = 0
+            while True:
+                tries += 1
+                left = stop_at - time.time()
+                if left < 8:
+                    if last_err == "unknown error":
+                        last_err = "ran out of time"
+                    return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
+                            "error": last_err, "ms": int((time.time() - started) * 1000)}
                 try:
-                    rep = normalize_report(extract_json(text))
-                except Exception:
-                    last_err = "model did not return valid JSON"
+                    status, text, err = caller(key, model, images, user_text, timeout=min(per_call, left - 2))
+                except requests.exceptions.JSONDecodeError:
+                    last_err = "the service sent a non-JSON reply: the key/token is probably wrong or has no access"
+                    bad_keys.add(key)
+                    break
+                except requests.Timeout:
+                    last_err = f"{model} timed out"
+                    break
+                except requests.RequestException as e:
+                    last_err = f"network error: {type(e).__name__}"
+                    break
+                except Exception as e:
+                    last_err = f"bad response: {type(e).__name__}"
+                    break
+                if status == 200:
+                    try:
+                        rep = normalize_report(extract_json(text))
+                    except Exception:
+                        last_err = f"{model} did not return valid JSON"
+                        break
+                    return {"provider": name, "label": cfg["label"], "model": model, "ok": True,
+                            "report": rep, "ms": int((time.time() - started) * 1000), "images_used": len(images)}
+                last_err = f"{status}: {err}"
+                lim = image_limit(err) if status in (400, 413, 422) else None
+                if lim and lim < len(images) and tries < 3:
+                    images = images[:lim]  # obey the model's image limit and ask again
                     continue
-                return {"provider": name, "label": cfg["label"], "model": model, "ok": True,
-                        "report": rep, "ms": int((time.time() - started) * 1000), "images_used": len(images)}
-            last_err = f"{status}: {err}"
-            if status == 404:
-                model_missing = True
+                if status in RETRYABLE and tries < 2 and stop_at - time.time() > 20:
+                    time.sleep(2.0)  # short back-off, then one more try with the same key
+                    continue
+                if status in (401, 403):
+                    bad_keys.add(key)
                 break
-        if out_of_time or not (model_missing or cfg.get("try_all_models")):
+            if last_err.startswith("404"):
+                break  # this model does not exist: go to the next model
+        if keys and all(k in bad_keys for k in keys):
             break
     return {"provider": name, "label": cfg["label"], "model": last_model, "ok": False,
             "error": last_err, "ms": int((time.time() - started) * 1000)}
@@ -1613,7 +1651,10 @@ def analyze():
 
     if not any(r["ok"] for r in results):
         detail = "; ".join(f"{p['label']}: {p['error']}" for p in panel) or "no response"
-        return jsonify(error=f"All AI models failed. {detail}", panel=panel), 502
+        busy = all(re.match(r"(429|5\d\d)|.*(timed out|too slow|ran out of time)", p["error"] or "") for p in panel)
+        head = ("All AI services are busy right now (free plans get overloaded at peak times). "
+                "Please wait one minute and press Analyze again. ") if busy else "All AI models failed. "
+        return jsonify(error=head + "Details: " + detail, panel=panel, busy=busy), 503 if busy else 502
 
     report = build_consensus(results, manual, len(images), n_frames)
     report["lang"] = lang_code
