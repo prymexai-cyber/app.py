@@ -1115,9 +1115,15 @@ def models_for(name, cfg):
         if avail:
             pinned = [m for m in models if m in avail or m.endswith("-latest")]
             # newest flash first, then flash-lite, then pro (slow) as the last resort
-            extra = sorted((m for m in avail if m not in pinned),
-                           key=lambda n: ("pro" in n, "lite" in n, "preview" in n, -_version(n)))
-            models = pinned + extra[:4]
+            rest = [m for m in avail if m not in pinned]
+            order = lambda n: ("preview" in n, -_version(n))
+            flash = sorted((m for m in rest if "flash" in m and "lite" not in m), key=order)
+            lite = sorted((m for m in rest if "lite" in m), key=order)
+            pro = sorted((m for m in rest if "pro" in m), key=order)
+            mixed = []
+            for i in range(3):  # alternate flash and flash-lite: when one family is overloaded the other often is not
+                mixed += flash[i:i + 1] + lite[i:i + 1]
+            models = pinned + mixed + pro[:1]
     elif name == "groq" and cfg["keys"]:
         avail = groq_available(cfg["keys"][0])
         if avail:
