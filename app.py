@@ -168,12 +168,36 @@ SPECIES = [
     ("Nephrite (jade)", 1.600, 1.641, 2.90, 3.02, "low", ("nephrite",)),
     ("Turquoise", 1.610, 1.650, 2.60, 2.90, "low", ("turquoise",)),
     ("Fluorite", 1.433, 1.435, 3.00, 3.25, "low", ("fluorite",)),
+    ("Kornerupine", 1.661, 1.699, 3.27, 3.45, "low", ("kornerupine",)),
+    ("Taaffeite", 1.717, 1.730, 3.60, 3.62, "low", ("taaffeite", "musgravite")),
+    ("Sapphirine", 1.705, 1.734, 3.40, 3.58, "low", ("sapphirine",)),
+    ("Sillimanite (fibrolite)", 1.654, 1.683, 3.14, 3.27, "low", ("sillimanite", "fibrolite")),
+    ("Enstatite", 1.650, 1.680, 3.20, 3.30, "low", ("enstatite",)),
+    ("Diopside", 1.664, 1.721, 3.22, 3.40, "low", ("diopside", "chrome diopside")),
+    ("Scapolite", 1.536, 1.596, 2.57, 2.74, "low", ("scapolite",)),
+    ("Danburite", 1.627, 1.639, 2.97, 3.03, "low", ("danburite",)),
+    ("Euclase", 1.650, 1.677, 3.00, 3.10, "low", ("euclase",)),
+    ("Prehnite", 1.611, 1.669, 2.80, 2.95, "low", ("prehnite",)),
+    ("Benitoite", 1.757, 1.804, 3.64, 3.68, "low", ("benitoite",)),
+    ("Grandidierite", 1.580, 1.639, 2.85, 3.00, "low", ("grandidierite",)),
+    ("Rhodochrosite", 1.597, 1.817, 3.40, 3.71, "low", ("rhodochrosite",)),
+    ("Cassiterite", 1.997, 2.098, 6.80, 7.10, "low", ("cassiterite",)),
+    ("Chalcedony / agate", 1.530, 1.540, 2.55, 2.64, "low", ("chalcedony", "agate", "onyx", "carnelian", "chrysoprase", "jasper")),
+    ("Lapis lazuli", 1.50, 1.67, 2.50, 3.00, "low", ("lapis",)),
+    ("Malachite", 1.655, 1.909, 3.25, 4.10, "low", ("malachite",)),
+    ("Sodalite", 1.483, 1.487, 2.14, 2.40, "low", ("sodalite",)),
+    ("Pearl", 1.52, 1.66, 2.60, 2.85, "low", ("pearl",)),
+    ("Coral", 1.486, 1.658, 2.60, 2.70, "low", ("coral",)),
+    ("Amber", 1.539, 1.545, 1.03, 1.10, "low", ("amber", "copal")),
+    ("Synthetic rutile (simulant)", 2.62, 2.90, 4.25, 4.27, "low", ("rutile",)),
+    ("Strontium titanate (simulant)", 2.40, 2.41, 5.10, 5.15, "low", ("strontium titanate", "fabulite")),
     ("Cubic zirconia (simulant)", 2.15, 2.18, 5.60, 6.00, "low", ("cubic zirconia", "zirconia", "cz")),
     ("YAG (simulant)", 1.83, 1.84, 4.50, 4.60, "low", ("yag",)),
     ("GGG (simulant)", 2.03, 2.04, 7.00, 7.09, "low", ("ggg",)),
     ("Glass (imitation)", 1.44, 1.70, 2.30, 4.50, "low", ("glass", "paste", "crystal glass")),
 ]
-SIMULANTS = ("Cubic zirconia (simulant)", "YAG (simulant)", "GGG (simulant)", "Glass (imitation)")
+SIMULANTS = ("Cubic zirconia (simulant)", "YAG (simulant)", "GGG (simulant)", "Glass (imitation)",
+             "Synthetic rutile (simulant)", "Strontium titanate (simulant)")
 
 # optic character and birefringence: SR singly refractive, U uniaxial, B biaxial, AGG aggregate
 OPTICS = {
@@ -190,11 +214,43 @@ OPTICS = {
     "Opal": ("SR", 0, 0), "Jadeite (jade)": ("AGG", 0, 0.012), "Nephrite (jade)": ("AGG", 0, 0.027),
     "Turquoise": ("AGG", 0, 0.040), "Fluorite": ("SR", 0, 0), "Cubic zirconia (simulant)": ("SR", 0, 0),
     "YAG (simulant)": ("SR", 0, 0), "GGG (simulant)": ("SR", 0, 0), "Glass (imitation)": ("SR", 0, 0),
+    "Kornerupine": ("B", 0.012, 0.017), "Taaffeite": ("U", 0.004, 0.009), "Sapphirine": ("B", 0.005, 0.008),
+    "Sillimanite (fibrolite)": ("B", 0.015, 0.021), "Enstatite": ("B", 0.008, 0.011), "Diopside": ("B", 0.024, 0.031),
+    "Scapolite": ("U", 0.004, 0.037), "Danburite": ("B", 0.006, 0.008), "Euclase": ("B", 0.019, 0.025),
+    "Prehnite": ("B", 0.021, 0.039), "Benitoite": ("U", 0.046, 0.047), "Grandidierite": ("B", 0.037, 0.039),
+    "Rhodochrosite": ("U", 0.208, 0.220), "Cassiterite": ("U", 0.096, 0.098), "Chalcedony / agate": ("AGG", 0, 0.006),
+    "Lapis lazuli": ("AGG", 0, 0), "Malachite": ("AGG", 0, 0.254), "Sodalite": ("SR", 0, 0), "Pearl": ("AGG", 0, 0.156),
+    "Coral": ("AGG", 0, 0.172), "Amber": ("SR", 0, 0), "Synthetic rutile (simulant)": ("U", 0.287, 0.287),
+    "Strontium titanate (simulant)": ("SR", 0, 0),
 }
+# optic sign where it is constant for the species
+OPTIC_SIGN = {
+    "Moissanite": "+", "Corundum (sapphire / ruby)": "-", "Beryl (emerald / aquamarine / morganite)": "-",
+    "Tourmaline": "-", "Quartz (amethyst / citrine / smoky)": "+", "Zircon": "+", "Apatite": "-",
+    "Topaz": "+", "Chrysoberyl (alexandrite / cat's eye)": "+", "Tanzanite / Zoisite": "+", "Kunzite / Spodumene": "+",
+    "Sinhalite": "-", "Andalusite": "-", "Kyanite": "-", "Sphene / Titanite": "+", "Diopside": "+",
+    "Euclase": "+", "Enstatite": "+", "Kornerupine": "-", "Sillimanite (fibrolite)": "+", "Sapphirine": "-",
+    "Prehnite": "+", "Grandidierite": "-", "Benitoite": "+", "Rhodochrosite": "-", "Scapolite": "-",
+    "Taaffeite": "-", "Cassiterite": "+", "Synthetic rutile (simulant)": "+",
+}
+PHENOMENA = {
+    "asterism": ("Corundum (sapphire / ruby)", "Spinel", "Garnet", "Quartz (amethyst / citrine / smoky)", "Diopside"),
+    "chatoyancy": ("Chrysoberyl (alexandrite / cat's eye)", "Quartz (amethyst / citrine / smoky)", "Tourmaline",
+                   "Beryl (emerald / aquamarine / morganite)", "Sillimanite (fibrolite)", "Apatite", "Scapolite", "Diopside", "Glass (imitation)"),
+    "colour_change": ("Chrysoberyl (alexandrite / cat's eye)", "Corundum (sapphire / ruby)", "Garnet", "Spinel", "Fluorite"),
+    "play_of_colour": ("Opal",),
+    "adularescence": ("Moonstone / Feldspar",),
+    "labradorescence": ("Moonstone / Feldspar",),
+    "aventurescence": ("Moonstone / Feldspar", "Quartz (amethyst / citrine / smoky)", "Glass (imitation)"),
+    "iridescence": ("Pearl", "Opal"),
+}
+MAGNET = ("none", "weak", "strong")
+MAGNET_STRONG = ("Garnet", "Peridot", "Malachite", "Rhodochrosite")
 # singly refractive materials that commonly show strain (anomalous double refraction) in the polariscope
 ADR_PRONE = {"Diamond", "Garnet", "Spinel", "Opal", "Glass (imitation)", "YAG (simulant)", "GGG (simulant)",
-             "Cubic zirconia (simulant)"}
-STRONG_DOUBLING = {"Moissanite", "Zircon", "Peridot", "Sphene / Titanite", "Sinhalite", "Tourmaline"}
+             "Cubic zirconia (simulant)", "Amber", "Strontium titanate (simulant)"}
+STRONG_DOUBLING = {"Moissanite", "Zircon", "Peridot", "Sphene / Titanite", "Sinhalite", "Tourmaline",
+                   "Synthetic rutile (simulant)", "Cassiterite", "Diopside"}
 
 # weight formula factors: carat = L x W x depth x SG x k   (length/width/depth in mm)
 SHAPE_K = {
@@ -256,7 +312,7 @@ AUTH_KEYS = ("Natural", "Synthetic / lab-grown", "Glass / imitation")
 # --------------------------------------------------------------------------
 # Prompt
 # --------------------------------------------------------------------------
-SYSTEM_PROMPT = """You are a senior gemologist (GIA/FGA level) working for Yasiru Gems Lab. You inspect one or more PHOTOS of gemstones (several photos and video frames can show the SAME stone or lot from different angles, lights and magnifications) and return ONLY one JSON object (no markdown, no commentary).
+SYSTEM_PROMPT = """You are a senior gemmologist (FGA, GIA G.G., DGemG level) working for Yasiru Gems Lab, a gem testing service whose reports are read by European clients. You inspect one or more PHOTOS of gemstones (several photos and video frames can show the SAME stone or lot from different angles, lights and magnifications), combine them with the client's test data, and return ONLY one JSON object (no markdown, no commentary).
 
 Return exactly this shape:
 {
@@ -265,35 +321,37 @@ Return exactly this shape:
   "count_confidence": "low | medium | high",
   "stone_points": [ {"x": <0.0-1.0>, "y": <0.0-1.0>} ],
   "identification": {
-    "species": "ENGLISH mineral species, e.g. Corundum, Spinel, Beryl, Diamond, Glass, Unknown",
-    "variety": "ENGLISH trade variety, e.g. Blue Sapphire, Ruby, Emerald, Padparadscha",
-    "name_local": "the variety name written in the REPORT LANGUAGE",
+    "species": "mineral species, e.g. Corundum, Spinel, Beryl, Chrysoberyl, Diamond, Glass, Unknown",
+    "variety": "trade variety, e.g. Blue Sapphire, Ruby, Padparadscha Sapphire, Emerald, Alexandrite",
+    "group": "mineral group or family if useful, e.g. Garnet group (pyrope-almandine series), else empty",
+    "natural_or_synthetic": "Natural | Synthetic (state the process if visible: flame-fusion, flux, hydrothermal, CVD, HPHT) | Imitation (name the material) | Composite (doublet / triplet) | Undetermined",
+    "transparency": "transparent | semi-transparent | translucent | semi-translucent | opaque",
+    "phenomenon": "none, or asterism / chatoyancy / colour change / play of colour / adularescence / labradorescence / aventurescence / iridescence",
     "confidence_percent": <0-100>,
-    "reasoning": "REPORT LANGUAGE: 2-4 sentences, which evidence identifies it"
+    "reasoning": "2-4 sentences: which evidence identifies it"
   },
   "gems": [
     {
       "id": <1-based integer>,
-      "type": "ENGLISH specific material, e.g. Blue Sapphire, Ruby, Emerald, Diamond, Spinel, Cubic zirconia, Glass, Unknown",
-      "type_local": "same, written in the REPORT LANGUAGE",
-      "color": "REPORT LANGUAGE: specific colour, e.g. cornflower blue",
-      "shape_cut": "REPORT LANGUAGE: e.g. oval mixed cut, cabochon, rough",
-      "estimated_origin": ["ENGLISH country names, best guess first"],
+      "type": "specific material, e.g. Blue Sapphire, Ruby, Emerald, Diamond, Spinel, Cubic zirconia, Glass, Unknown",
+      "color": "precise colour description, e.g. medium-dark slightly violetish blue",
+      "shape_cut": "shape and cutting style, e.g. oval, mixed cut / cushion, modified brilliant / cabochon",
+      "estimated_origin": ["country names, best guess first"],
       "origin_confidence": "low | medium | high",
       "authenticity": "likely natural | likely synthetic/lab-grown | likely glass or imitation | cannot determine",
       "authenticity_confidence": "low | medium | high",
       "treatment": "likely unheated | likely heated | likely diffusion-treated or filled | cannot determine",
       "treatment_confidence": "low | medium | high",
-      "treatment_indicators": "REPORT LANGUAGE: visible clues behind the treatment opinion",
-      "notes": "REPORT LANGUAGE: clarity, inclusions, silk, zoning, phenomena, surface wear, anything suspicious"
+      "treatment_indicators": "visible clues behind the treatment opinion",
+      "notes": "clarity, inclusions, silk, zoning, phenomena, surface wear, anything suspicious"
     }
   ],
   "lot_origin_probabilities": [ {"country": "Sri Lanka", "percent": 55}, {"country": "Madagascar", "percent": 25} ],
   "lot_treatment_probabilities": [ {"status": "Unheated", "percent": 30}, {"status": "Heated", "percent": 60}, {"status": "Diffusion-treated / filled", "percent": 10} ],
   "lot_authenticity_probabilities": [ {"status": "Natural", "percent": 85}, {"status": "Synthetic / lab-grown", "percent": 10}, {"status": "Glass / imitation", "percent": 5} ],
-  "summary_by_type": [ {"type": "REPORT LANGUAGE type", "count": 3} ],
-  "summary_by_colour": [ {"color": "REPORT LANGUAGE colour", "count": 3} ],
-  "visual_weight_estimate": {"min_ct": <number or null>, "max_ct": <number or null>, "basis": "ENGLISH: what size reference you used, or why it is null"},
+  "summary_by_type": [ {"type": "Blue Sapphire", "count": 3} ],
+  "summary_by_colour": [ {"color": "Blue", "count": 3} ],
+  "visual_weight_estimate": {"min_ct": <number or null>, "max_ct": <number or null>, "basis": "what size reference you used, or why it is null"},
   "interpreted_tests": {
     "polariscope": "SR | DR | AGG | ADR | unknown",
     "optic_figure": "uniaxial | biaxial | none | unknown",
@@ -302,20 +360,28 @@ Return exactly this shape:
     "ri": "number or range as text, or empty",
     "sg": "number as text, or empty"
   },
-  "tests_used": [ {"method": "REPORT LANGUAGE test name", "finding": "REPORT LANGUAGE what was seen or measured", "meaning": "REPORT LANGUAGE what it indicates"} ],
+  "tests_used": [ {"method": "test name", "finding": "what was seen or measured", "meaning": "what it indicates"} ],
+  "treatment_statement": "one formal report sentence, e.g. 'No indications of heating.' / 'Indications of heating.' / 'Indications of heating with minor residues in fissures.' / 'Clarity enhancement: minor amount of oil in fissures.' / 'Not determined on the basis of the tests performed.'",
+  "origin_statement": "one formal sentence, e.g. 'Gemmological testing revealed characteristics consistent with those of sapphires from Sri Lanka (Ceylon).' or 'Origin not determinable with the tests performed.'",
+  "comments": "1-2 sentences of formal laboratory-style comments (inclusions, phenomena, durability, care) or empty",
+  "recommended_lab_tests": ["lab test + what it would prove"],
+  "overall_remarks": "2-4 sentences about the lot, including every doubt",
+  "conclusion": "2-3 sentence final statement (species, variety, natural/synthetic, treatment, origin opinion, confidence)",
+  "client_language": {
+    "name": "the variety name in the REPORT LANGUAGE",
+    "reasoning": "identification.reasoning translated into the REPORT LANGUAGE",
+    "conclusion": "conclusion translated into the REPORT LANGUAGE"
+  },
   "follow_up_questions": [
     {"id": "q1", "question": "REPORT LANGUAGE question to the client", "why": "REPORT LANGUAGE: why this answer matters", "options": ["REPORT LANGUAGE short answer choice", "..."]}
-  ],
-  "recommended_lab_tests": ["REPORT LANGUAGE: lab test + what it would prove"],
-  "overall_remarks": "REPORT LANGUAGE: 2-4 sentences about the lot, including every doubt",
-  "conclusion": "REPORT LANGUAGE: 2-3 sentence final statement for a one-page report (species, variety, natural/synthetic, treatment, origin opinion, confidence)"
+  ]
 }
 
-LANGUAGE: every field marked REPORT LANGUAGE must be written in the report language given in the user message (use its native script). Fields marked ENGLISH and every enum value stay in English exactly as shown, because software reads them.
+LANGUAGE: every field is written in clear British English (formal laboratory style, European spelling: colour, gemmological, centre), EXCEPT the "client_language" block and "follow_up_questions", which are written in the REPORT LANGUAGE given in the user message (native script). Enum values stay exactly as shown. The client may write observations in ANY language or mixed language (e.g. Sinhala in English letters): translate them yourself.
 
-GEM SCOPE: the stones may be ANY gem material in the world: diamond, ruby, sapphire (every colour, padparadscha, star), emerald and all beryl, spinel, all garnets, tourmaline (incl. paraiba), topaz, zircon, peridot, tanzanite, alexandrite and cat's eye chrysoberyl, moonstone and feldspars, the quartz family, opal, jade, turquoise, pearl, coral, amber, lapis, organic and rare collector stones, lab-grown stones (flame-fusion, flux, hydrothermal, CVD, HPHT) and simulants (cubic zirconia, moissanite, YAG, GGG, glass, doublets and triplets). Identify the material as specifically as the evidence allows.
+GEM SCOPE: ANY gem material in the world: diamond (natural, HPHT, CVD, treated), the corundum family (ruby, sapphire of every colour, padparadscha, star, trapiche), the beryl family, spinel, the garnet group (pyrope, almandine, spessartine, grossular incl. tsavorite and hessonite, andradite incl. demantoid, colour-change and Mali garnet), tourmaline (incl. Cu-bearing paraiba-type), topaz, zircon, peridot, tanzanite and zoisite, chrysoberyl (alexandrite, cymophane), feldspars (moonstone, labradorite, sunstone, amazonite), the quartz family and chalcedony, opal, jadeite and nephrite, turquoise, lapis lazuli, malachite, rare and collector stones (kornerupine, sinhalite, taaffeite, musgravite, sapphirine, ekanite, scapolite, sillimanite, enstatite, diopside, danburite, euclase, benitoite, grandidierite, painite, hauyne, rhodochrosite, cassiterite, sphene, kyanite, andalusite, iolite, apatite, fluorite), organics (natural and cultured pearl, coral, amber/copal, ivory, shell), lab-grown stones (flame-fusion, Czochralski, flux, hydrothermal, CVD, HPHT), simulants (cubic zirconia, moissanite, YAG, GGG, strontium titanate, synthetic rutile, glass, plastic) and assembled stones (doublets, triplets). Identify as specifically as the evidence allows.
 
-MULTIPLE IMAGES: all images belong to the same test. Combine the views: use close-ups and video frames for inclusions, colour zoning, doubling, surface lustre and phenomena; use the widest image (image 1) for counting. stone_points refer to IMAGE 1 only.
+MULTIPLE IMAGES: all images belong to the same test. Combine the views: use close-ups and video frames for inclusions, colour zoning, doubling, lustre, dispersion and phenomena; use the widest image (image 1) for counting. stone_points refer to IMAGE 1 only.
 
 COUNTING RULES:
 - Scan image 1 systematically (row by row). Count every separate stone exactly once. Do not count hands, tweezers, trays, reflections or shadows.
@@ -323,31 +389,34 @@ COUNTING RULES:
 - "gems" has one entry per stone (max 40, say so in overall_remarks if more).
 
 STANDARD GEMMOLOGICAL TESTS - how to read the client's data:
-- Refractometer: RI and birefringence (BR) are the strongest species identifiers. Corundum 1.762-1.770 BR 0.008; spinel 1.718 SR; beryl 1.57-1.58; tourmaline 1.62-1.64 BR 0.018+; quartz 1.544-1.553; chrysoberyl 1.746-1.755; zircon 1.81-1.98; peridot 1.65-1.69 BR 0.036; topaz 1.61-1.63; garnets 1.72-1.89 SR; over-the-limit (OTL, >1.81) = diamond, CZ, moissanite, YAG, GGG, sphene, demantoid, high zircon.
-- Hydrostatic SG: corundum 4.00, spinel 3.60, beryl 2.72, quartz 2.65, topaz 3.53, tourmaline 3.06, diamond 3.52, CZ 5.6-6.0, glass 2.3-4.5.
-- Polariscope: SR = stays dark on rotation (diamond, spinel, garnet, glass, CZ, YAG, opal); DR = blinks light/dark 4 times per turn (corundum, beryl, quartz, tourmaline ...); AGG = stays light (jade, chalcedony, turquoise); ADR = snaky/tatami/cross-hatched strain (synthetic spinel, garnet, glass, diamond). Conoscope figure: uniaxial (corundum, beryl, quartz, tourmaline, zircon) vs biaxial (topaz, chrysoberyl, peridot, tanzanite, iolite, feldspar). Quartz shows a bull's-eye figure.
-- Dichroscope: SR shows none; uniaxial DR shows two colours (dichroic); biaxial can show three (trichroic: tanzanite, iolite, andalusite, alexandrite).
-- Chelsea filter: red/pink = chromium (natural and synthetic emerald, ruby, red spinel, alexandrite, demantoid) OR cobalt (blue synthetic spinel and cobalt glass show red, natural blue sapphire stays dark/green). Aquamarine looks green.
-- Spectroscope: Cr lines (ruby, emerald, red spinel, alexandrite); Fe 450 nm band (natural blue/green/yellow sapphire, strongest in basaltic stones, usually missing in Verneuil synthetics); cobalt bands (synthetic spinel, cobalt glass); 653.5 nm (zircon); 505/527/576 nm (almandine); rare-earth lines (apatite, doped glass/YAG).
-- UV: ruby/red spinel red; Sri Lankan yellow sapphire orange-apricot; synthetic blue sapphire chalky-greenish SW; heated blue sapphire may show chalky blue-white SW zoning; diamond blue LW (phosphorescence); CVD/HPHT lab diamonds often inert LW and show patterns/phosphorescence in SW.
-- Thermal/moissanite testers: only separate diamond and moissanite from other materials; they say nothing about heating and cannot separate natural from lab-grown diamond.
-- Magnification: natural = angular zoning, crystals, fingerprints, rutile silk, three-phase (Colombian emerald), horsetail (demantoid), lily-pads (peridot); synthetic = curved striae and Plato lines (Verneuil), flux fingerprints, platinum platelets, chevron growth and nail-heads (hydrothermal), metallic flux or pinpoint clouds in HPHT/CVD diamond; heated = dissolved/dotted silk, discoid tension halos, melted crystals, healed glassy residues; filled = flash effect, gas bubbles in fractures (lead-glass ruby); diffusion = colour concentrated at facet edges/girdle seen in immersion.
+- Visual: lustre (adamantine = diamond, zircon, demantoid, CZ; vitreous = most; resinous = amber, plastic), dispersion/fire (high: diamond, CZ, moissanite, sphene, demantoid, zircon, strontium titanate, synthetic rutile), joins and colourless crowns of doublets/triplets (look at the girdle side view), red flash ring in garnet-topped doublets.
+- Refractometer: RI and birefringence (BR) are the strongest species identifiers. Corundum 1.762-1.770 BR 0.008 uniaxial negative; spinel 1.718 SR; beryl 1.57-1.58 U-; tourmaline 1.62-1.64 BR 0.018+ U-; quartz 1.544-1.553 U+ (bull's-eye figure); chrysoberyl 1.746-1.755 B+; zircon 1.81-1.98 U+; peridot 1.65-1.69 BR 0.036; topaz 1.61-1.63 B+; garnets 1.72-1.89 SR; OTL (>1.81) = diamond, CZ, moissanite, YAG, GGG, sphene, demantoid, high zircon, strontium titanate, rutile. Spot (distant vision) readings for cabochons. Optic sign separates e.g. quartz (+) from scapolite (-), topaz (+) from andalusite (-).
+- Hydrostatic SG: corundum 4.00, spinel 3.60, beryl 2.72, quartz 2.65, topaz 3.53, tourmaline 3.06, diamond 3.52, CZ 5.6-6.0, glass 2.3-4.5, amber 1.08 (floats in saturated salt water). Heavy liquids (3.32 methylene iodide, 2.88 bromoform, 2.65) as quick separators.
+- Polariscope: SR = stays dark on rotation; DR = blinks 4 times per turn; AGG = stays light (jade, chalcedony, turquoise, pearl); ADR = snaky / tatami / cross-hatched strain (synthetic spinel, garnet, glass, diamond). Conoscope: uniaxial vs biaxial figure.
+- Dichroscope: SR none; uniaxial dichroic; biaxial may be trichroic (tanzanite, iolite, andalusite, alexandrite).
+- Chelsea filter: red/pink = chromium (natural and synthetic emerald, ruby, red spinel, alexandrite, demantoid) or cobalt (blue synthetic spinel and cobalt glass turn red; natural blue sapphire stays dark/green).
+- Spectroscope: Cr lines (ruby, emerald, red spinel, alexandrite); Fe 450 nm (natural blue/green/yellow sapphire, strong in basaltic stones, usually missing in flame-fusion); cobalt bands (synthetic spinel, cobalt glass); 653.5 nm (zircon); 505/527/576 nm (almandine); rare-earth lines (apatite, doped glass/YAG); 415 nm Cape line (natural type Ia diamond).
+- UV: ruby/red spinel red; Sri Lankan yellow sapphire apricot-orange LW; synthetic blue sapphire chalky-greenish SW; heated blue sapphire chalky blue-white SW zoning; diamond blue LW with Cape stones; CVD/HPHT diamond often inert LW, patterned and phosphorescent SW; amber chalky blue; oiled emerald yellowish fillers.
+- Magnetic susceptibility (neodymium magnet, Hodgkinson method): strong drag = almandine, spessartine, andradite garnets, some peridot; weak = pyrope, iron-rich spinel and sapphire; diamond is inert, but HPHT synthetic diamond with metallic flux can be picked up.
+- Thermal / moissanite testers: only separate diamond and moissanite from other materials; they say nothing about heating and cannot separate natural from lab-grown diamond.
+- Magnification (loupe, dark-field, fibre-optic, immersion): natural = angular zoning, crystals, fingerprints, rutile silk, three-phase (Colombian emerald), horsetail (demantoid), lily-pads (peridot), negative crystals; synthetic = curved striae and Plato lines (flame-fusion), flux fingerprints and platinum platelets (flux), chevron growth and nail-heads (hydrothermal), metallic flux and pinpoints (HPHT diamond), graining and non-diamond carbon (CVD); heated = dissolved/dotted silk, discoid tension halos, melted crystals, glassy residues; filled = flash effect, gas bubbles in fractures (lead-glass ruby); diffusion = colour concentrated at facet edges seen in immersion; dyed = colour in cracks; coated = scratched or patchy surface layer.
 
-ADVANCED LAB METHODS - use them when the client pastes results, and recommend the right ones:
-- FTIR: 3309 cm-1 OH series in blue sapphire suggests heating (basaltic) ; kaolinite/boehmite/diaspore/gibbsite bands support no heat; emerald/jade resin fillers and polymer impregnation; diamond type Ia/IIa/IIb.
-- Raman / PL: species and inclusion ID; broadened Cr PL peaks indicate heated spinel; SiV 737 nm PL = CVD diamond; Ni-related lines = HPHT synthetic.
-- UV-Vis-NIR: Fe/Ti charge transfer, basaltic vs metamorphic sapphire, Cr/V colour causes, irradiation.
-- EDXRF and LA-ICP-MS trace elements (Ga, Mg, Fe, Ti, V, Cr, Be): origin determination, Be-diffusion, synthetic vs natural.
-- DiamondView / UV imaging: growth patterns of natural, HPHT and CVD diamond.
+ADVANCED LABORATORY METHODS - use them when the client pastes results, and recommend the right ones:
+- FTIR: 3309 cm-1 OH series in blue sapphire indicates heating (basaltic) ; kaolinite / boehmite / diaspore / gibbsite bands support no heat; resin, oil and polymer fillers in emerald, jade and turquoise; diamond type Ia / IIa / IIb.
+- Raman / PL: species and inclusion identification; broadened Cr PL peaks = heated spinel; SiV 737 nm = CVD diamond; Ni-related and 883/884 nm lines = HPHT synthetic; low-temperature PL for diamond treatment.
+- UV-Vis-NIR: Fe/Ti charge transfer, basaltic versus metamorphic sapphire, Cr/V colour causes, irradiation and HPHT colour treatment of diamond.
+- EDXRF and LA-ICP-MS trace elements (Ga, Mg, Fe, Ti, V, Cr, Be, Li, Cu): origin determination, Be-diffusion, synthetic versus natural, Cu in paraiba-type tourmaline.
+- DiamondView / cathodoluminescence: growth patterns of natural, HPHT and CVD diamond, flux and hydrothermal synthetics.
+- X-radiography and micro-CT: natural versus cultured (bead / non-bead) pearls. XRD and SEM-EDS for aggregates and unknowns.
 
-ORIGIN RULES: only use countries realistic for the stone type (blue sapphire: Sri Lanka, Madagascar, Myanmar, Thailand, Australia, Kashmir, Tanzania, Montana USA, Nigeria, Cambodia, Ethiopia ...; ruby: Myanmar, Mozambique, Thailand, Sri Lanka, Madagascar, Afghanistan, Tanzania, Vietnam ...; emerald: Colombia, Zambia, Brazil, Afghanistan/Panjshir, Ethiopia, Madagascar ...). Metamorphic sapphire (low iron, silk, weak 450 nm) points to Sri Lanka, Madagascar, Myanmar, Kashmir; basaltic sapphire (high iron, strong 450 nm, dark, inky) points to Thailand, Cambodia, Australia, Nigeria. Spread the probability when evidence is weak. Probability lists each add up to exactly 100.
+ORIGIN RULES: only use countries realistic for the stone type (blue sapphire: Sri Lanka, Madagascar, Myanmar, Thailand, Australia, Kashmir, Tanzania, Montana USA, Nigeria, Cambodia, Ethiopia ...; ruby: Myanmar, Mozambique, Thailand, Sri Lanka, Madagascar, Afghanistan, Tanzania, Vietnam, Greenland ...; emerald: Colombia, Zambia, Brazil, Afghanistan/Panjshir, Ethiopia, Madagascar, Russia ...). Metamorphic sapphire (low iron, silk, weak 450 nm) points to Sri Lanka, Madagascar, Myanmar, Kashmir; basaltic sapphire (high iron, strong 450 nm, dark, inky) points to Thailand, Cambodia, Australia, Nigeria. Spread the probability when evidence is weak. Probability lists each add up to exactly 100.
 
-FOLLOW-UP QUESTIONS: ask 3-6 short, practical questions in the REPORT LANGUAGE whose answers would change your conclusion the most (e.g. "In the polariscope, does the stone blink 4 times or stay dark?", "What is the RI reading?", "Under the Chelsea filter is it red or green?", "Do you see curved bands under the loupe?"). Give 2-5 short answer options for each, always including an "I don't know / not tested" option. If the user message already contains the client's ANSWERS, use them, and only ask about what is still unclear.
+FOLLOW-UP QUESTIONS: ask 3-6 short, practical questions in the REPORT LANGUAGE whose answers would change your conclusion the most (e.g. polariscope reaction, RI, Chelsea filter colour, curved bands under the loupe, magnet reaction, view of the girdle for a join line). Give 2-5 short answer options for each, always including an "I don't know / not tested" option. If the user message already contains the client's ANSWERS, use them and only ask about what is still unclear.
 
-INSTRUMENT DATA: trust the client's numeric readings (RI, BR, SG, weight) and instrument results over visual impressions, but treat the client's claim about the stone as unverified. Free-text observations may be written in any language or mixed language (e.g. Sinhala written in English letters): translate them and fill "interpreted_tests" from them.
+INSTRUMENT DATA: trust the client's numeric readings (RI, BR, SG, weight) and instrument results over visual impressions, but treat the client's claim about the stone as unverified. Fill "interpreted_tests" from free-text observations.
 
 HONESTY RULES:
-- Photos alone can never prove origin, heat treatment or natural/synthetic status. Calibrate your confidence to the evidence actually available and never claim certainty you do not have. Name exactly which test would settle each open question.
+- Photos alone can never prove origin, heat treatment or natural/synthetic status. Calibrate your confidence to the evidence actually available and never claim certainty you do not have. Name exactly which test would settle each open question, and use "not determined" wording in treatment_statement and origin_statement when the evidence is insufficient.
 - If the images contain no gemstones, return total_count 0, empty lists, and explain in overall_remarks.
 """
 
@@ -419,6 +488,13 @@ def parse_manual(raw):
                        ("pleochroism", PLEOCHROISM), ("chelsea", CHELSEA)):
         if m.get(k) in allowed:
             out[k] = m[k]
+    if m.get("optic_sign") in ("+", "-"):
+        out["optic_sign"] = m["optic_sign"]
+    if m.get("magnet") in MAGNET:
+        out["magnet"] = m["magnet"]
+    phen = [p for p in (m.get("phenomena") or []) if p in PHENOMENA]
+    if phen:
+        out["phenomena"] = phen
     spec = [s for s in (m.get("spectro") or []) if s in SPECTRO]
     if spec:
         out["spectro"] = spec
@@ -464,8 +540,14 @@ def manual_to_text(m):
         lines.append(f"- Polariscope: {m['polariscope']}")
     if m.get("optic_figure"):
         lines.append(f"- Conoscope interference figure: {m['optic_figure']}")
+    if m.get("optic_sign"):
+        lines.append(f"- Optic sign: {m['optic_sign']}")
     if m.get("pleochroism"):
         lines.append(f"- Dichroscope: {m['pleochroism']}")
+    if m.get("magnet"):
+        lines.append(f"- Neodymium magnet (magnetic susceptibility) reaction: {m['magnet']}")
+    if m.get("phenomena"):
+        lines.append("- Optical phenomena seen: " + ", ".join(p.replace('_', ' ') for p in m["phenomena"]))
     if m.get("chelsea"):
         lines.append(f"- Chelsea colour filter: {m['chelsea']}")
     if m.get("spectro"):
@@ -563,6 +645,16 @@ def optic_factor(name, m):
         x = 1.0 if optic == want else (0.12 if optic in ("U", "B") else 0.1)
         f *= x
         reasons.append(f"{fig} figure {'fits' if x >= 0.9 else 'conflicts'}")
+    sign = m.get("optic_sign")
+    if sign and optic in ("U", "B") and name in OPTIC_SIGN:
+        x = 1.0 if OPTIC_SIGN[name] == sign else 0.3
+        f *= x
+        reasons.append(f"optic sign {sign} {'fits' if x == 1 else 'conflicts'}")
+    elif sign and optic in ("U", "B"):
+        f *= 0.85  # optic sign varies within this species
+    elif sign and optic in ("SR", "AGG"):
+        f *= 0.3
+        reasons.append("an optic sign is not expected for this material")
     pl = m.get("pleochroism")
     if pl:
         x = {"none": {"SR": 1.0, "AGG": 1.0, "U": 0.6, "B": 0.6},
@@ -585,6 +677,10 @@ def species_hints(m):
         hints.update(OBS[o][1].get("s", ()))
     for s in m.get("spectro", []):
         hints.update(SPECTRO_HINT.get(s, ()))
+    for p in m.get("phenomena", []):
+        hints.update(PHENOMENA.get(p, ()))
+    if m.get("magnet") == "strong":
+        hints.update(MAGNET_STRONG)
     return hints
 
 
@@ -642,7 +738,9 @@ def identify(m, derived_sg=None):
                 reasons.append("moissanite tester result agrees")
         if name in hints:
             score = min(1.0, score * 1.25)
-            reasons.append("inclusion / spectrum evidence points here")
+            reasons.append("inclusion / spectrum / phenomenon evidence points here")
+        elif hints:
+            score *= 0.85
         if score >= 0.2:
             out.append({"name": name, "score": round(score * 100), "reasons": reasons, "simulant": name in SIMULANTS})
     out.sort(key=lambda x: -x["score"])
@@ -741,6 +839,9 @@ def apply_evidence(rep, m, lead_type):
         mult(a_mult, "Glass / imitation", 8)
         evidence.append("Stone is called a diamond but the thermal tester reads low: strongly indicates a simulant (CZ, glass).")
 
+    if m.get("magnet") in ("weak", "strong") and "diamond" in lt:
+        mult(a_mult, "Synthetic / lab-grown", 5); mult(a_mult, "Natural", 0.3)
+        evidence.append("A diamond that reacts to a strong magnet: typical of HPHT lab-grown diamond with metallic flux inclusions.")
     spec = m.get("spectro", [])
     is_blue = "blue" in lt or "sapphire" in lt and "pink" not in lt and "yellow" not in lt
     if "cobalt" in spec:
@@ -831,7 +932,8 @@ def evidence_level(m, n_images, n_frames):
         ("ri", bool(m.get("ri") or m.get("ri_otl")), 20),
         ("sg", bool(m.get("sg")), 12),
         ("polariscope", bool(m.get("polariscope") or m.get("optic_figure")), 10),
-        ("optical", bool(m.get("pleochroism") or m.get("chelsea") or m.get("spectro")), 6),
+        ("optical", bool(m.get("pleochroism") or m.get("chelsea") or m.get("spectro") or m.get("optic_sign")
+                         or m.get("magnet") or m.get("phenomena")), 6),
         ("uv", bool(m.get("uv_long") or m.get("uv_short")), 4),
         ("magnification", bool(m.get("observations")), 10),
         ("size", bool(m.get("weight_ct") or m.get("length_mm")), 3),
@@ -1073,6 +1175,7 @@ def normalize_report(rep):
             visual = None
     ident = rep.get("identification") if isinstance(rep.get("identification"), dict) else {}
     it = rep.get("interpreted_tests") if isinstance(rep.get("interpreted_tests"), dict) else {}
+    loc = rep.get("client_language") if isinstance(rep.get("client_language"), dict) else {}
     qs = []
     for i, q in enumerate((rep.get("follow_up_questions") or [])[:6], 1):
         if isinstance(q, dict) and as_str(q.get("question")).strip():
@@ -1086,7 +1189,11 @@ def normalize_report(rep):
         "stone_points": points,
         "identification": {
             "species": as_str(ident.get("species")), "variety": as_str(ident.get("variety")),
-            "name_local": as_str(ident.get("name_local")),
+            "name_local": as_str(loc.get("name") or ident.get("name_local")),
+            "group": as_str(ident.get("group")),
+            "natural_or_synthetic": as_str(ident.get("natural_or_synthetic")),
+            "transparency": as_str(ident.get("transparency")),
+            "phenomenon": as_str(ident.get("phenomenon")),
             "confidence": max(0, min(100, to_int(ident.get("confidence_percent"), 0))),
             "reasoning": as_str(ident.get("reasoning")),
         },
@@ -1104,6 +1211,10 @@ def normalize_report(rep):
         if isinstance(rep.get("recommended_lab_tests"), list) else [],
         "overall_remarks": as_str(rep.get("overall_remarks")),
         "conclusion": as_str(rep.get("conclusion")),
+        "treatment_statement": as_str(rep.get("treatment_statement")),
+        "origin_statement": as_str(rep.get("origin_statement")),
+        "comments": as_str(rep.get("comments")),
+        "local": {"reasoning": as_str(loc.get("reasoning")), "conclusion": as_str(loc.get("conclusion"))},
     }
 
 
@@ -1332,8 +1443,8 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
             "conflicts": conflicts(manual, ai_row),
             "weight": compute_weight(manual, species_row),
             "identity": top["name"] if top and top["score"] >= 60 else "",
-            "readings": {k: manual[k] for k in ("ri", "ri_otl", "biref", "sg", "polariscope", "optic_figure",
-                                                 "pleochroism", "chelsea", "spectro", "uv_long", "uv_short",
+            "readings": {k: manual[k] for k in ("ri", "ri_otl", "biref", "sg", "polariscope", "optic_figure", "optic_sign",
+                                                 "pleochroism", "chelsea", "spectro", "magnet", "phenomena", "uv_long", "uv_short",
                                                  "thermal", "moissanite", "weight_ct", "length_mm", "width_mm",
                                                  "depth_mm", "shape") if k in manual},
             "caution": ("Thermal diamond testers only separate diamond and moissanite from other materials. "
@@ -1377,6 +1488,10 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
             "variety": rep["identification"]["variety"] or lead_type,
             "name_local": rep["identification"]["name_local"],
             "reasoning": rep["identification"]["reasoning"],
+            "group": rep["identification"]["group"],
+            "natural_or_synthetic": rep["identification"]["natural_or_synthetic"],
+            "transparency": rep["identification"]["transparency"],
+            "phenomenon": rep["identification"]["phenomenon"],
             "confidence": id_conf,
             "source": id_source,
             "panel_agreement": f"{votes_for}/{votes_total}",
@@ -1395,6 +1510,10 @@ def build_consensus(results, manual, n_images=1, n_frames=0):
         "lab_tests": rep["lab_tests"],
         "overall_remarks": rep["overall_remarks"],
         "conclusion": rep["conclusion"],
+        "treatment_statement": rep["treatment_statement"],
+        "origin_statement": rep["origin_statement"],
+        "comments": rep["comments"],
+        "local": rep["local"],
         "lead": lead["label"],
         "models_used": len(ok),
         "images": n_images,
